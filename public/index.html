@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plant trends</title>
+<style>
+:root{color-scheme:light;--surface:#fcfcfb;--panel:#ffffff;--line:#e4e3de;--grid:#ecebe7;--text:#0b0b0b;--text2:#52514e;--text3:#75746e;--series:#2a78d6;--band:#2a78d622;--err:#b3261e}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;--surface:#1a1a19;--panel:#222221;--line:#3a3a38;--grid:#30302e;--text:#f0efec;--text2:#c3c2b7;--text3:#9c9b92;--series:#3987e5;--band:#3987e533;--err:#f2867e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface);color:var(--text);font:14px/1.45 "Segoe UI",Arial,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:18px 20px 40px}
+body.embed main{padding:8px}
+body.embed .page-head{display:none}
+.page-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+h1{font-size:20px;font-weight:600;margin:0}
+.fresh{font-size:12.5px;color:var(--text3)}
+.filters{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+.field{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--text2)}
+input,button{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px;height:34px}
+button{cursor:pointer}
+button:hover{border-color:var(--text3)}
+button.on{border-color:var(--series);box-shadow:inset 0 0 0 1px var(--series)}
+:focus-visible{outline:2px solid var(--series);outline-offset:1px}
+.search{position:relative;width:280px}
+.search input{width:100%}
+#matches{position:absolute;z-index:5;left:0;right:0;top:100%;margin:3px 0 0;padding:4px;list-style:none;background:var(--panel);border:1px solid var(--line);border-radius:6px;max-height:320px;overflow:auto;box-shadow:0 6px 18px #0002}
+#matches[hidden]{display:none}
+#matches li{padding:5px 8px;border-radius:4px;cursor:pointer;color:var(--text)}
+#matches li span{display:block;font-size:12px;color:var(--text3)}
+#matches li.active,#matches li:hover{background:var(--grid)}
+.group{display:flex;gap:4px}
+.title h2{font-size:16px;font-weight:600;margin:0}
+.title p{margin:1px 0 10px;color:var(--text2);font-size:13px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-bottom:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+.tile .lab{font-size:12px;color:var(--text2)}
+.tile .val{font-size:22px;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .val small{font-size:13px;font-weight:400;color:var(--text2)}
+.tile .sub{font-size:12px;color:var(--text3);min-height:17px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px}
+.card h3{font-size:14px;font-weight:600;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+#chartBox{position:relative;height:360px;transition:opacity .15s}
+#chartBox svg{display:block;width:100%;height:100%;touch-action:none}
+#tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font-size:12.5px;box-shadow:0 4px 12px #0002;white-space:nowrap}
+#tip[hidden]{display:none}
+#tip b{display:block;font-size:15px;font-weight:600}
+#tip div{color:var(--text2)}
+.scroll{max-height:420px;overflow:auto;border-top:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th{position:sticky;top:0;background:var(--panel);text-align:right;font-weight:600;color:var(--text2);padding:6px 10px;border-bottom:1px solid var(--line)}
+td{text-align:right;padding:4px 10px;border-bottom:1px solid var(--grid)}
+th:first-child,td:first-child{text-align:left}
+#daysTable tbody tr{cursor:pointer}
+#daysTable tbody tr:hover td,#daysTable tbody tr.on td{background:var(--grid)}
+.msg{color:var(--text2);padding:18px;text-align:center}
+.err{color:var(--err)}
+.note{font-size:12.5px;color:var(--text3);margin:6px 0 0}
+.key{max-width:360px;margin:12vh auto;display:flex;flex-direction:column;gap:10px}
+[hidden]{display:none !important}
+</style></head><body>
+<main>
+<form id="keyForm" class="key" hidden>
+  <h1>Plant trends</h1>
+  <label class="field">Access key<input id="keyInput" type="password" autocomplete="off" required></label>
+  <button type="submit">Open</button>
+  <div id="keyError" class="err"></div>
+</form>
+<div id="app" hidden>
+  <div class="page-head"><h1>Plant trends</h1><div class="fresh" id="fresh"></div></div>
+  <div class="filters">
+    <div class="field search">Tag
+      <input id="tagInput" placeholder="Search tag or description" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="matches">
+      <ul id="matches" role="listbox" hidden></ul>
+    </div>
+    <div class="field">Quick range
+      <div class="group">
+        <button type="button" data-days="0">Today</button><button type="button" data-days="1">Yesterday</button><button type="button" data-days="7">7 days</button><button type="button" data-days="30">30 days</button>
+      </div>
+    </div>
+    <label class="field">From<input id="from" type="datetime-local"></label>
+    <label class="field">To<input id="to" type="datetime-local"></label>
+    <button type="button" id="show">Show</button>
+  </div>
+  <div id="result" hidden>
+    <div class="title"><h2 id="tagName"></h2><p id="tagDesc"></p></div>
+    <div class="tiles" id="tiles"></div>
+    <div class="card"><h3 id="chartTitle"></h3><div id="chartBox" tabindex="0" aria-label="Trend chart. Left and right arrow keys move along the time axis."><svg id="chart"></svg><div id="tip" hidden></div></div><p class="note" id="chartNote"></p></div>
+    <div class="card"><h3>Day-wise summary, last 30 days (click a day to open it)</h3><div class="scroll" style="max-height:300px"><table id="daysTable"><thead></thead><tbody></tbody></table></div><div class="msg" id="daysEmpty" hidden>No daily summary in this range yet.</div></div>
+    <div class="card"><h3><span id="rowsTitle">Values</span><button type="button" id="csv">Download CSV</button></h3><div class="scroll"><table id="rowsTable"><thead></thead><tbody></tbody></table></div></div>
+  </div>
+  <div class="msg" id="message">Search for a tag to see its trend.</div>
+</div>
+</main>
+<script src="app.js"></script>
+</body></html>

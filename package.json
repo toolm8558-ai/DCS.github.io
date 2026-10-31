@@ -1,0 +1,16 @@
+{
+  "name": "trendweb",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Read-only trend site and API for the plant_trend MongoDB database",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "mongodb": "^7.8.0"
+  }
+}
