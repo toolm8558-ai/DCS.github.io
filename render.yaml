@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: dcs-trendweb
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: ACCESS_KEY
+        generateValue: true
+      - key: DB_NAME
+        value: plant_trend
