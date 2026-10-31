@@ -60,11 +60,101 @@ async function start() {
     if (s && s.newestData) $('fresh').textContent = `Data up to ${fmtDate(Date.parse(s.newestData))} ${fmtTime(Date.parse(s.newestData))}`;
     if (!state.from) setDays(1, false);
     syncInputs();
+    drawGroupBar();
+    loadGroup();
     if (state.tag) { $('tagInput').value = state.tag; load(); }
   } catch (e) {
     if (e.message !== 'unauthorized') showKey(e.message);
   }
 }
+
+// Tag groups shown as an overview. Only tags that have data in the chosen range are drawn.
+const GROUPS = [
+  { name: 'Vibration, displacement and bearing temperature', tags: `ZIA_201A.PV ZIA_201B.PV ZIA_202.PV VIA_201A.PV VIA_201B.PV VIB_202A.PV VIB_202B.PV VIB_203A.PV VIB_203B.PV VIB_204A.PV VIB_204B.PV VI_205A.PV VI_205B.PV VI_206A.PV VI_206B.PV VI_251A.PV VI_251B.PV VI_252A.PV VI_252B.PV TE_201.PV TE_202.PV TE_203.PV TE_204.PV TE_205.PV TE_206.PV TE_207.PV TE_208.PV GEN_DE GEN_NDE`.split(' ') },
+  { name: 'Process (load, pressure, temperature, flow, level)', tags: `TG_LOAD.PV PT_02.PV TT_07ABC FT_02_COMP LT_01_FINAL FW_FLOW_TOT PT100_FINAL FT200_FINAL FT_201.PV PT_01.PV ZT_S01 PT_26.PV TE_100_1.PV TE_01.PV TE_02.PV TE_10.PV TT_03.PV TT_04.PV TT_05.PV TE_13.PV TE_26.PV TE_200.PV TE_201.PV DT_200.PV DT_201.PV DT_203.PV PT_100A.PV PT_100B.PV DT_101.PV DT_109.PV DT_102.PV DT_103.PV DT_104.PV TE_102.PV TE_105.PV TE_106.PV TE_107.PV AT_100.PV LT_51AVG LT_53.PV TE_104.PV FT_03.PV BAG_FLOW_TOTAL`.split(' ') }
+];
+let groupIdx = Number(params.get('group') || -1), groupReq = 0;
+
+function drawGroupBar() {
+  const bar = $('groupBar');
+  bar.replaceChildren(...GROUPS.map((g, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = `${g.name} (${g.tags.length})`;
+    b.classList.toggle('on', i === groupIdx);
+    b.addEventListener('click', () => { groupIdx = i; drawGroupBar(); loadGroup(); });
+    return b;
+  }));
+}
+
+function spark(d) {
+  const W = 200, H = 34, known = d.points.filter(p => p.v !== undefined);
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none' });
+  if (known.length < 2) return svg;
+  const band = d.bucketMinutes > 1 && d.type !== 'BOOL', val = p => (band ? p.avg : p.v);
+  const vs = known.map(val), lo = Math.min(...vs), hi = Math.max(...vs);
+  const x = t => (t - d.from) / (d.to - d.from) * W, y = v => H - 3 - (v - lo) / ((hi - lo) || 1) * (H - 6);
+  let run = [];
+  const flush = () => { if (run.length > 1) el('polyline', { points: run.join(' '), fill: 'none', stroke: 'var(--series)', 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke' }, svg); run = []; };
+  for (const p of d.points) { if (p.v === undefined) flush(); else run.push(`${x(p.t).toFixed(1)},${y(val(p)).toFixed(1)}`); }
+  flush();
+  return svg;
+}
+
+function ovCard(d) {
+  const s = d.summary, band = d.bucketMinutes > 1 && d.type !== 'BOOL';
+  const last = [...d.points].reverse().find(p => p.v !== undefined);
+  const whole = Math.round((d.to - d.from) / 60000);
+  const c = document.createElement('button');
+  c.type = 'button'; c.className = 'ocard'; c.dataset.tag = d.tag;
+  const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = d.tag;
+  const ds = document.createElement('div'); ds.className = 'ds'; ds.textContent = d.description || ''; ds.title = d.description || '';
+  const vl = document.createElement('div'); vl.className = 'vl';
+  const v = last ? (band ? last.avg : last.v) : null;
+  vl.textContent = v === null ? '-' : num(v);
+  if (d.unit) { const u = document.createElement('small'); u.textContent = ` ${d.unit}`; vl.append(u); }
+  const mm = document.createElement('div'); mm.className = 'mm';
+  mm.textContent = d.type === 'BOOL' ? `On ${num(s.hoursAt1)} h, starts ${s.starts}` : `Min ${num(s.min)}  Max ${num(s.max)}  Avg ${num(s.avg)}`;
+  const rc = document.createElement('div'); rc.className = 'mm'; rc.textContent = `Recorded ${Math.round(s.minutes / whole * 100)}%`;
+  c.append(nm, ds, vl, spark(d), mm, rc);
+  c.addEventListener('click', () => { pick(d.tag); $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  return c;
+}
+
+async function loadGroup() {
+  if (groupIdx < 0 || !GROUPS[groupIdx]) { $('overview').hidden = true; return; }
+  const g = GROUPS[groupIdx], id = ++groupReq;
+  $('overview').hidden = false;
+  $('ovTitle').textContent = g.name;
+  $('ovStat').textContent = 'Loading...';
+  $('ovGrid').replaceChildren();
+  $('ovNone').hidden = true;
+  $('message').hidden = true;
+  const query = tag => `tag=${encodeURIComponent(tag)}&from=${encodeURIComponent(state.from)}&to=${encodeURIComponent(state.to)}`;
+  const results = new Array(g.tags.length);
+  let next = 0, done = 0;
+  async function worker() {
+    while (next < g.tags.length) {
+      const i = next++;
+      try { results[i] = await api(`/api/trend?${query(g.tags[i])}`); }
+      catch (e) { if (e.message === 'unauthorized') return; results[i] = null; }
+      done++;
+      if (id === groupReq) $('ovStat').textContent = `Loading ${done} of ${g.tags.length}...`;
+    }
+  }
+  await Promise.all(Array.from({ length: 6 }, worker));
+  if (id !== groupReq) return;
+  const withData = [], without = [];
+  g.tags.forEach((t, i) => { const d = results[i]; (d && d.summary && d.summary.minutes ? withData : without).push(d && d.summary && d.summary.minutes ? d : t); });
+  $('ovGrid').replaceChildren(...withData.map(ovCard));
+  $('ovStat').textContent = `${withData.length} of ${g.tags.length} tags have data, ${fmtDate(Date.parse(`${state.from}:00Z`) - IST)} ${state.from.slice(11)} to ${fmtDate(Date.parse(`${state.to}:00Z`) - IST)} ${state.to.slice(11)}`;
+  if (!withData.length) $('ovGrid').textContent = 'No data in this range for any tag in this group.';
+  $('ovNone').hidden = !without.length;
+  if (without.length) { $('ovNone').querySelector('summary').textContent = `No data / not found (${without.length})`; $('ovNone').querySelector('p').textContent = without.join(', '); }
+  history.replaceState(null, '', `?${new URLSearchParams({ ...(params.get('embed') ? { embed: 1 } : {}), group: groupIdx, ...(state.tag ? { tag: state.tag } : {}), from: state.from, to: state.to })}`);
+}
+
+function refresh() { loadGroup(); if (state.tag) load(); }
 
 function setDays(days, reload = true) {
   const t = todayStart();
@@ -73,7 +163,7 @@ function setDays(days, reload = true) {
   else { state.from = isoLocal(t + DAY - days * DAY); state.to = isoLocal(t + DAY); }
   syncInputs();
   document.querySelectorAll('[data-days]').forEach(b => b.classList.toggle('on', Number(b.dataset.days) === days));
-  if (reload) load();
+  if (reload) refresh();
 }
 
 function syncInputs() { $('from').value = state.from; $('to').value = state.to; }
@@ -82,7 +172,7 @@ document.querySelectorAll('[data-days]').forEach(b => b.addEventListener('click'
 $('show').addEventListener('click', () => {
   state.from = $('from').value; state.to = $('to').value;
   document.querySelectorAll('[data-days]').forEach(b => b.classList.remove('on'));
-  load();
+  refresh();
 });
 
 // Tag search.
@@ -124,7 +214,7 @@ function drawMatches() {
   $('tagInput').setAttribute('aria-expanded', String(!list.hidden));
 }
 function closeMatches() { $('matches').hidden = true; $('tagInput').setAttribute('aria-expanded', 'false'); }
-function pick(tag) { state.tag = tag; $('tagInput').value = tag; closeMatches(); load(); }
+function pick(tag) { document.querySelectorAll('.ocard').forEach(c => c.classList.toggle('on', c.dataset.tag === tag)); state.tag = tag; $('tagInput').value = tag; closeMatches(); load(); }
 
 async function load() {
   if (!state.tag) return;
@@ -140,7 +230,7 @@ async function load() {
     const [trend, days] = await Promise.all([api(`/api/trend?${query}`), api(`/api/days?${dayQuery}`)]);
     if (id !== request) return;
     data = trend;
-    history.replaceState(null, '', `?${new URLSearchParams({ ...(params.get('embed') ? { embed: 1 } : {}), tag: state.tag, from: state.from, to: state.to })}`);
+    history.replaceState(null, '', `?${new URLSearchParams({ ...(params.get('embed') ? { embed: 1 } : {}), ...(groupIdx >= 0 ? { group: groupIdx } : {}), tag: state.tag, from: state.from, to: state.to })}`);
     render(days.days);
     $('message').hidden = true;
   } catch (e) {
