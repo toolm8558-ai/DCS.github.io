@@ -1,93 +1,215 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Plant trends</title>
+<title>DCS Trends</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<meta name="theme-color" content="#232b3e">
+<script>document.documentElement.dataset.theme = localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');</script>
 <style>
-:root{color-scheme:light;--surface:#fcfcfb;--panel:#ffffff;--line:#e4e3de;--grid:#ecebe7;--text:#0b0b0b;--text2:#52514e;--text3:#75746e;--series:#2a78d6;--band:#2a78d622;--err:#b3261e}
-@media (prefers-color-scheme:dark){:root{color-scheme:dark;--surface:#1a1a19;--panel:#222221;--line:#3a3a38;--grid:#30302e;--text:#f0efec;--text2:#c3c2b7;--text3:#9c9b92;--series:#3987e5;--band:#3987e533;--err:#f2867e}}
+:root{color-scheme:light;--page:#eef1f7;--surface:#fff;--ink:#1c2333;--ink2:#4c566a;--ink3:#6c7689;--line:#dde2ec;--grid:#e8ecf3;--axis:#c3cad8;--series:#0b76d1;--wash:#0b76d11a;--band:#0b76d12e;--action:#d4320e;--action-hover:#b52a0b;--hover:#f1f4f9;--err:#b42318;
+  --strip:#232b3e;--strip-line:#3a4560;--strip-ink:#f4f6fb;--strip-ink2:#b4bdd0;--strip-series:#5cb8ff;--strip-track:#3a4560;--good:#3ddc84;--warn:#fab219;--font:"Bahnschrift","DIN Alternate","Segoe UI",system-ui,sans-serif}
+[data-theme=dark]{color-scheme:dark;--page:#141926;--surface:#1d2434;--ink:#eef1f8;--ink2:#b6bfd1;--ink3:#8f99ad;--line:#323b50;--grid:#2a3244;--axis:#46506a;--series:#4da8f5;--wash:#4da8f51f;--band:#4da8f538;--action:#e8461e;--action-hover:#f25c36;--hover:#262e41;--err:#ff8a7a;--strip:#0f1420;--strip-line:#2a3244}
 *{box-sizing:border-box}
-body{margin:0;background:var(--surface);color:var(--text);font:14px/1.45 "Segoe UI",Arial,sans-serif}
-main{max-width:1180px;margin:0 auto;padding:18px 20px 40px}
-body.embed main{padding:8px}
-body.embed .page-head{display:none}
-.page-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:12px}
-h1{font-size:20px;font-weight:600;margin:0}
-.fresh{font-size:12.5px;color:var(--text3)}
-.filters{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
-.field{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--text2)}
-input,button{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px;height:34px}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.5 var(--font)}
+h1,h2,h3,p{margin:0}
+[hidden]{display:none !important}
+input,button{font:inherit;color:inherit}
 button{cursor:pointer}
-button:hover{border-color:var(--text3)}
-button.on{border-color:var(--series);box-shadow:inset 0 0 0 1px var(--series)}
-:focus-visible{outline:2px solid var(--series);outline-offset:1px}
-.search{position:relative;width:280px}
-.search input{width:100%}
-#matches{position:absolute;z-index:5;left:0;right:0;top:100%;margin:3px 0 0;padding:4px;list-style:none;background:var(--panel);border:1px solid var(--line);border-radius:6px;max-height:320px;overflow:auto;box-shadow:0 6px 18px #0002}
-#matches[hidden]{display:none}
-#matches li{padding:5px 8px;border-radius:4px;cursor:pointer;color:var(--text)}
-#matches li span{display:block;font-size:12px;color:var(--text3)}
-#matches li.active,#matches li:hover{background:var(--grid)}
-.group{display:flex;gap:4px}
-.title h2{font-size:16px;font-weight:600;margin:0}
-.title p{margin:1px 0 10px;color:var(--text2);font-size:13px}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-bottom:12px}
-.tile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
-.tile .lab{font-size:12px;color:var(--text2)}
-.tile .val{font-size:22px;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tile .val small{font-size:13px;font-weight:400;color:var(--text2)}
-.tile .sub{font-size:12px;color:var(--text3);min-height:17px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px}
-.card h3{font-size:14px;font-weight:600;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
-#chartBox{position:relative;height:360px;transition:opacity .15s}
-#chartBox svg{display:block;width:100%;height:100%;touch-action:none}
-#tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font-size:12.5px;box-shadow:0 4px 12px #0002;white-space:nowrap}
-#tip[hidden]{display:none}
-#tip b{display:block;font-size:15px;font-weight:600}
-#tip div{color:var(--text2)}
-.scroll{max-height:420px;overflow:auto;border-top:1px solid var(--line)}
-table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
-th{position:sticky;top:0;background:var(--panel);text-align:right;font-weight:600;color:var(--text2);padding:6px 10px;border-bottom:1px solid var(--line)}
-td{text-align:right;padding:4px 10px;border-bottom:1px solid var(--grid)}
+:focus-visible{outline:3px solid #ff9a00;outline-offset:2px}
+.wrap{max-width:1440px;margin:0 auto;padding-left:28px;padding-right:28px}
+
+/* The bar and the live strip are one instrument panel: the page's single loud element. */
+.panel{background:var(--strip);color:var(--strip-ink);position:relative}
+.panel:before{content:"";position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,#f02d0f 0,#ff5a00 62%,#ffa800 100%)}
+.bar{display:flex;align-items:center;gap:14px;padding-top:17px;padding-bottom:13px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0;margin-right:auto}
+.brand img{width:42px;height:42px;border-radius:10px;display:block}
+.brand h1{font-size:20px;font-weight:600;letter-spacing:-.1px;line-height:1.2}
+.brand p{font-size:13px;color:var(--strip-ink2);white-space:nowrap}
+.pill{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--strip-ink2);min-width:0}
+.pill i{flex:none;width:9px;height:9px;border-radius:50%;background:var(--strip-ink2)}
+.pill.ok i{background:var(--good);animation:beat 2s ease-in-out infinite}
+.pill.stale i{background:var(--warn);border-radius:1px;transform:rotate(45deg)}
+.pill.lost i{background:#ff8a7a;border-radius:1px}
+.pill.stale{color:var(--warn)}
+@keyframes beat{50%{opacity:.35}}
+.ghost{background:none;border:1px solid var(--strip-line);border-radius:7px;color:var(--strip-ink);height:36px;padding:0 12px;font-size:13.5px;white-space:nowrap}
+.ghost:hover{background:var(--strip-line)}
+.live{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid var(--strip-line);overflow:hidden}
+.cell{display:flex;flex-direction:column;background:none;border:0;border-right:1px solid var(--strip-line);border-bottom:1px solid var(--strip-line);margin:0 -1px -1px 0;padding:14px 18px 15px;color:inherit;text-align:left;min-width:0;position:relative}
+.cell:hover{background:#ffffff0f}
+.cell[aria-pressed=true]{background:#ffffff14;box-shadow:inset 0 -3px 0 #ff5a00}
+.cell:focus-visible{outline-offset:-3px}
+.cell .name{font-size:13.5px;color:var(--strip-ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell .reading{display:flex;align-items:baseline;gap:6px;margin:2px 0 8px;min-width:0}
+.cell .val{font-size:32px;font-weight:600;line-height:1.15;letter-spacing:-.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cell .unit{font-size:13.5px;color:var(--strip-ink2);white-space:nowrap}
+.cell .spark{display:block;width:100%;height:26px;margin-bottom:8px}
+.cell .spark polyline{fill:none;stroke:var(--strip-series);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.meter{height:4px;background:var(--strip-track);border-radius:2px;position:relative}
+.meter b{position:absolute;top:-3px;width:3px;height:10px;margin-left:-1.5px;background:var(--strip-ink);border-radius:1px}
+.range{display:flex;justify-content:space-between;font-size:12px;color:var(--strip-ink2);margin-top:5px;font-variant-numeric:tabular-nums}
+.live.stale .cell .val,.live.stale .spark{opacity:.55}
+.liveNote{padding:9px 0 12px;font-size:13.5px;color:var(--warn)}
+
+/* Everything under the filters answers one question: what happened in this period. */
+main.wrap{padding-top:24px;padding-bottom:48px}
+.filters{display:grid;grid-template-columns:minmax(240px,1.25fr) auto minmax(190px,.7fr) minmax(190px,.7fr) auto;gap:12px 14px;align-items:end;margin-bottom:24px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0;font-size:13px;color:var(--ink2)}
+.field input{width:100%;min-width:0;height:42px;padding:0 11px;background:var(--surface);color:var(--ink);border:1px solid var(--axis);border-radius:7px}
+.field input:hover{border-color:var(--ink3)}
+.search{position:relative}
+#matches{position:absolute;z-index:5;left:0;right:0;top:100%;margin:4px 0 0;padding:4px;list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;max-height:340px;overflow:auto;box-shadow:0 12px 28px #141b2a33}
+#matches li{padding:8px 10px;border-radius:5px;cursor:pointer;color:var(--ink);font-size:14.5px}
+#matches li span{display:block;font-size:13px;color:var(--ink3)}
+#matches li.active,#matches li:hover{background:var(--hover)}
+.presets{display:flex;height:42px;border:1px solid var(--axis);border-radius:7px;overflow:hidden;background:var(--surface)}
+.presets button{background:none;border:0;border-right:1px solid var(--line);padding:0 12px;font-size:14px;white-space:nowrap;color:var(--ink2)}
+.presets button:last-child{border-right:0}
+.presets button:hover{background:var(--hover);color:var(--ink)}
+.presets button.on{background:var(--strip);color:#fff}
+.presets button:focus-visible{outline-offset:-3px}
+#show{height:42px;padding:0 20px;background:var(--action);color:#fff;border:0;border-radius:7px;font-weight:600;white-space:nowrap}
+#show:hover{background:var(--action-hover)}
+
+.groupBar{display:flex;gap:8px;flex-wrap:wrap;margin:-8px 0 20px}
+.groupBar button{background:var(--surface);border:1px solid var(--axis);border-radius:7px;padding:8px 13px;font-size:14px;color:var(--ink2);text-align:left}
+.groupBar button:hover{background:var(--hover);color:var(--ink)}
+.groupBar button.on{background:var(--strip);border-color:var(--strip);color:#fff}
+#overview{margin-bottom:26px}
+.ovHead{display:flex;justify-content:space-between;align-items:baseline;gap:4px 16px;flex-wrap:wrap;margin-bottom:10px}
+.ovHead h2{font-size:18px;font-weight:600}
+.ovHead span{font-size:14px;color:var(--ink2)}
+.ovGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ocard{background:none;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);margin:0 -1px -1px 0;padding:12px 15px 11px;text-align:left;min-width:0;color:var(--ink)}
+.ocard:hover{background:var(--hover)}
+.ocard.on{background:var(--hover);box-shadow:inset 0 -3px 0 var(--action)}
+.ocard:focus-visible{outline-offset:-3px}
+.ocard .ds{font-size:14px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ocard .nm{font-size:12.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ocard .vl{font-size:24px;font-weight:600;line-height:1.3;white-space:nowrap}
+.ocard .vl small{font-size:13px;font-weight:400;color:var(--ink2)}
+.ocard svg{display:block;width:100%;height:34px;margin:4px 0}
+.ocard polyline{fill:none;stroke:var(--series);stroke-width:1.5;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+#ovNone{margin-top:9px;font-size:13.5px;color:var(--ink3)}
+#ovNone summary{cursor:pointer}
+#ovNone p{margin-top:4px;overflow-wrap:anywhere}
+.title{display:flex;justify-content:space-between;align-items:baseline;gap:6px 20px;flex-wrap:wrap;margin-bottom:12px}
+.title h2{font-size:24px;font-weight:600;letter-spacing:-.2px;line-height:1.25}
+.title h2 small{font-size:14px;font-weight:400;color:var(--ink3);letter-spacing:0;margin-left:8px;white-space:nowrap}
+.title p{color:var(--ink2);font-size:14px}
+.figures{display:grid;grid-template-columns:1.35fr 1.35fr 1fr 1fr 1fr;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:14px;overflow:hidden}
+.fig{padding:16px 20px 15px;border-right:1px solid var(--line);min-width:0}
+.fig:last-child{border-right:0}
+.fig .lab{font-size:14px;color:var(--ink2)}
+.fig .val{font-size:27px;font-weight:600;letter-spacing:-.4px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fig .val small{font-size:14px;font-weight:400;letter-spacing:0;color:var(--ink2)}
+.fig.lead .val{font-size:44px;line-height:1.15;letter-spacing:-1px}
+.fig .sub{font-size:13px;color:var(--ink3);min-height:19px}
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:14px}
+.chartWrap{padding:16px 18px 12px}
+#chartBox{position:relative;height:400px;transition:opacity .15s}
+#chartBox svg{display:block;width:100%;height:100%;touch-action:pan-y}
+#chartBox:focus-visible{outline-offset:4px}
+#tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:7px 11px;font-size:13px;box-shadow:0 6px 16px #141b2a2e;white-space:nowrap;color:var(--ink2);z-index:2}
+#tip b{display:block;font-size:17px;font-weight:600;color:var(--ink)}
+.note{font-size:13.5px;color:var(--ink3);margin-top:8px}
+.tabs{display:flex;align-items:center;gap:4px;padding:8px 12px 0;border-bottom:1px solid var(--line)}
+.tabs [role=tab]{background:none;border:0;border-bottom:3px solid transparent;padding:8px 10px 8px;font-size:14.5px;color:var(--ink2);white-space:nowrap}
+.tabs [role=tab]:hover{color:var(--ink)}
+.tabs [role=tab][aria-selected=true]{color:var(--ink);font-weight:600;border-bottom-color:var(--action)}
+#csv{margin-left:auto;background:none;border:1px solid var(--axis);border-radius:7px;height:34px;padding:0 12px;font-size:13.5px;margin-bottom:6px;white-space:nowrap}
+#csv:hover{background:var(--hover)}
+.scroll{max-height:440px;overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th{position:sticky;top:0;background:var(--surface);text-align:right;font-weight:600;color:var(--ink2);padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{text-align:right;padding:8px 14px;border-bottom:1px solid var(--grid);white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
 #daysTable tbody tr{cursor:pointer}
-#daysTable tbody tr:hover td,#daysTable tbody tr.on td{background:var(--grid)}
-.msg{color:var(--text2);padding:18px;text-align:center}
+#daysTable tbody tr:hover td{background:var(--hover)}
+#daysTable tbody tr.on td{background:var(--hover);font-weight:600}
+.msg{color:var(--ink2);padding:26px;text-align:center}
 .err{color:var(--err)}
-.note{font-size:12.5px;color:var(--text3);margin:6px 0 0}
-.key{max-width:360px;margin:12vh auto;display:flex;flex-direction:column;gap:10px}
-[hidden]{display:none !important}
+
+.gate{min-height:100vh;display:grid;place-items:center;padding:20px;background:var(--strip)}
+.key{width:100%;max-width:380px;display:flex;flex-direction:column;gap:16px;background:var(--surface);border-radius:12px;padding:30px 28px}
+.key img{width:76px;height:76px;border-radius:17px;display:block}
+.key h1{font-size:24px;font-weight:600;line-height:1.2}
+.key p{color:var(--ink2);font-size:14.5px}
+.key button{height:44px;background:var(--action);color:#fff;border:0;border-radius:7px;font-weight:600}
+.key button:hover{background:var(--action-hover)}
+#keyError{font-size:14px;min-height:21px}
+
+body.embed .bar,body.embed .panel{display:none}
+body.embed main{padding-top:12px}
+@media(max-width:1180px){.cell{padding:12px 14px 13px}.cell .val{font-size:25px}.filters{grid-template-columns:repeat(2,minmax(0,1fr)) auto}.search,.presetField{grid-column:span 3}}
+@media(max-width:860px){.wrap{padding-left:18px;padding-right:18px}.live{grid-template-columns:repeat(2,minmax(0,1fr))}.cell .spark,.range{display:none}.cell .reading{margin-bottom:9px}.brand p{display:none}.figures{grid-template-columns:repeat(2,minmax(0,1fr))}.fig{border-bottom:1px solid var(--line)}.fig:nth-child(2n){border-right:0}.fig:last-child{grid-column:span 2;border-bottom:0}.fig.lead .val{font-size:34px}.presets{overflow-x:auto}.presets button{flex:1 0 auto}#chartBox{height:320px}}
+@media(max-width:560px){.wrap{padding-left:12px;padding-right:12px}.bar{flex-wrap:wrap;gap:8px 10px}.pill{order:3;width:100%}.brand img{width:36px;height:36px}.ghost{height:34px;padding:0 10px}.cell{padding:10px 11px 11px}.cell .val{font-size:23px}.cell .name{font-size:13px}.filters{grid-template-columns:minmax(0,1fr)}.search,.presetField{grid-column:auto}#show{width:100%}.fig{padding:12px 13px}.fig .val{font-size:21px}.fig.lead .val{font-size:27px;letter-spacing:-.5px}.title h2{font-size:20px}.title h2 small{display:block;margin-left:0}.chartWrap{padding:12px 10px 10px}#chartBox{height:270px}th,td{padding:7px 10px;font-size:13px}#csv{font-size:0;padding:0 10px}#csv:after{content:"CSV";font-size:13px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none !important;transition:none !important;scroll-behavior:auto !important}}
 </style></head><body>
-<main>
-<form id="keyForm" class="key" hidden>
-  <h1>Plant trends</h1>
-  <label class="field">Access key<input id="keyInput" type="password" autocomplete="off" required></label>
-  <button type="submit">Open</button>
-  <div id="keyError" class="err"></div>
-</form>
+<div class="gate" id="gate" hidden>
+  <form id="keyForm" class="key">
+    <img src="logo.png" alt="" width="76" height="76">
+    <div><h1>DCS Trends</h1><p>Enter your access key to see plant values.</p></div>
+    <label class="field">Access key<input id="keyInput" type="password" autocomplete="off" required></label>
+    <button type="submit">Open dashboard</button>
+    <div id="keyError" class="err" role="alert"></div>
+  </form>
+</div>
 <div id="app" hidden>
-  <div class="page-head"><h1>Plant trends</h1><div class="fresh" id="fresh"></div></div>
-  <div class="filters">
-    <div class="field search">Tag
-      <input id="tagInput" placeholder="Search tag or description" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="matches">
-      <ul id="matches" role="listbox" hidden></ul>
+  <section class="panel" aria-label="Live plant values">
+    <div class="wrap bar">
+      <div class="brand"><img src="logo.png" alt="" width="42" height="42"><div><h1>DCS Trends</h1><p id="fresh"></p></div></div>
+      <div class="pill" id="pill"><i aria-hidden="true"></i><span id="pillText">Connecting</span></div>
+      <button type="button" class="ghost" id="theme">Dark view</button>
+      <button type="button" class="ghost" id="signOut">Sign out</button>
     </div>
-    <div class="field">Quick range
-      <div class="group">
-        <button type="button" data-days="0">Today</button><button type="button" data-days="1">Yesterday</button><button type="button" data-days="7">7 days</button><button type="button" data-days="30">30 days</button>
+    <div class="wrap">
+      <div class="live" id="live"></div>
+      <p class="liveNote" id="liveNote" hidden></p>
+    </div>
+  </section>
+  <main class="wrap">
+    <div class="filters">
+      <label class="field search">Tag
+        <input id="tagInput" placeholder="Search by tag or description" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="matches">
+        <ul id="matches" role="listbox" hidden></ul>
+      </label>
+      <div class="field presetField"><span id="presetLabel">Period</span>
+        <div class="presets" role="group" aria-labelledby="presetLabel">
+          <button type="button" data-preset="1h">1 hour</button><button type="button" data-preset="8h">8 hours</button><button type="button" data-preset="today">Today</button><button type="button" data-preset="yesterday">Yesterday</button><button type="button" data-preset="7d">7 days</button><button type="button" data-preset="30d">30 days</button>
+        </div>
+      </div>
+      <label class="field">From<input id="from" type="datetime-local"></label>
+      <label class="field">To<input id="to" type="datetime-local"></label>
+      <button type="button" id="show">Show period</button>
+    </div>
+    <div class="groupBar" id="groupBar" role="group" aria-label="Tag groups"></div>
+    <div id="overview" hidden>
+      <div class="ovHead"><h2 id="ovTitle"></h2><span id="ovStat" role="status"></span></div>
+      <div class="ovGrid" id="ovGrid"></div>
+      <details id="ovNone" hidden><summary></summary><p></p></details>
+      <div id="ovError" class="msg err" hidden></div>
+    </div>
+    <div id="result" hidden>
+      <div class="title"><h2><span id="tagName"></span><small id="tagCode"></small></h2><p id="period"></p></div>
+      <div class="figures" id="figures"></div>
+      <div class="sheet chartWrap">
+        <div id="chartBox" tabindex="0" aria-label="Trend chart. Left and right arrow keys move along the time axis."><svg id="chart"></svg><div id="tip" hidden></div></div>
+        <p class="note" id="chartNote"></p>
+      </div>
+      <div class="sheet">
+        <div class="tabs" role="tablist" aria-label="Tables">
+          <button type="button" role="tab" id="tabDays" aria-selected="true" aria-controls="paneDays">Daily summary</button>
+          <button type="button" role="tab" id="tabRows" aria-selected="false" aria-controls="paneRows">Values</button>
+          <button type="button" id="csv">Download CSV</button>
+        </div>
+        <div id="paneDays" role="tabpanel" aria-labelledby="tabDays"><div class="scroll"><table id="daysTable"><thead></thead><tbody></tbody></table></div><div class="msg" id="daysEmpty" hidden>No recorded days in the last 30 days of this period.</div></div>
+        <div id="paneRows" role="tabpanel" aria-labelledby="tabRows" hidden><div class="scroll"><table id="rowsTable"><thead></thead><tbody></tbody></table></div></div>
       </div>
     </div>
-    <label class="field">From<input id="from" type="datetime-local"></label>
-    <label class="field">To<input id="to" type="datetime-local"></label>
-    <button type="button" id="show">Show</button>
-  </div>
-  <div id="result" hidden>
-    <div class="title"><h2 id="tagName"></h2><p id="tagDesc"></p></div>
-    <div class="tiles" id="tiles"></div>
-    <div class="card"><h3 id="chartTitle"></h3><div id="chartBox" tabindex="0" aria-label="Trend chart. Left and right arrow keys move along the time axis."><svg id="chart"></svg><div id="tip" hidden></div></div><p class="note" id="chartNote"></p></div>
-    <div class="card"><h3>Day-wise summary, last 30 days (click a day to open it)</h3><div class="scroll" style="max-height:300px"><table id="daysTable"><thead></thead><tbody></tbody></table></div><div class="msg" id="daysEmpty" hidden>No daily summary in this range yet.</div></div>
-    <div class="card"><h3><span id="rowsTitle">Values</span><button type="button" id="csv">Download CSV</button></h3><div class="scroll"><table id="rowsTable"><thead></thead><tbody></tbody></table></div></div>
-  </div>
-  <div class="msg" id="message">Search for a tag to see its trend.</div>
+    <div class="msg" id="message" hidden></div>
+  </main>
 </div>
-</main>
 <script src="app.js"></script>
 </body></html>

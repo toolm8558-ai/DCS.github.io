@@ -1,3 +1,4 @@
 web.ini
 node_modules/
 runtime/
+.claude/
