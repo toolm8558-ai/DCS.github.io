@@ -12,3 +12,5 @@ services:
         generateValue: true
       - key: DB_NAME
         value: plant_trend
+      - key: ALLOWED_ORIGIN
+        value: https://toolm8558-ai.github.io

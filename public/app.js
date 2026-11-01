@@ -2,6 +2,8 @@
 const $ = id => document.getElementById(id);
 const IST = 330 * 60000, MINUTE = 60000, HOUR = 3600000, DAY = 86400000;
 const LIVE_EVERY_MS = 2000, LIVE_STALE_MS = 15000, LIVE_KEEP = 150, STATUS_EVERY_MS = 60000;
+// GitHub Pages serves only these files, so there the data comes from the server on Render.
+const API = location.hostname.endsWith('.github.io') ? 'https://dcs-trendweb.onrender.com' : '';
 const params = new URLSearchParams(location.search);
 if (params.get('embed') === '1') document.body.classList.add('embed');
 
@@ -33,7 +35,7 @@ const num = v => (v === null || v === undefined ? '' : Number(v).toLocaleString(
 const liveNum = v => Number(v).toLocaleString('en-IN', { minimumFractionDigits: Math.abs(v) < 1000 ? 2 : 0, maximumFractionDigits: Math.abs(v) < 1000 ? 2 : 0 });
 
 async function api(path) {
-  const res = await fetch(path, { headers: { 'x-api-key': key } });
+  const res = await fetch(API + path, { headers: { 'x-api-key': key } });
   const body = await res.json().catch(() => ({}));
   if (res.status === 401) { showKey('That key is not right. Check it and try again.'); throw new Error('unauthorized'); }
   if (!res.ok) throw new Error(body.error || `The request failed (${res.status})`);

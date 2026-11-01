@@ -246,6 +246,7 @@ async function main() {
     if (cfg.origin) {
       res.setHeader('Access-Control-Allow-Origin', cfg.origin);
       res.setHeader('Access-Control-Allow-Headers', 'x-api-key');
+      res.setHeader('Access-Control-Max-Age', '86400');   // otherwise the browser asks before every live reading
     }
     if (req.method === 'OPTIONS') return send(204, '');
     if (req.method !== 'GET') return send(405, JSON.stringify({ error: 'Only GET is supported' }));

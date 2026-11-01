@@ -70,7 +70,11 @@ Then open <http://127.0.0.1:3000> and enter the access key. On a Windows compute
 
 `render.yaml` describes the service. Create a Blueprint from this repository and enter `MONGO_URI` when asked; Render generates `ACCESS_KEY`, which you can copy from the service's Environment page. In Atlas, Network Access must allow the host to connect. After that, each push to `main` deploys by itself.
 
-GitHub Pages cannot run this site, because it needs a Node.js server.
+### Open it from GitHub Pages
+
+The site's pages can also be opened from <https://toolm8558-ai.github.io/DCS.github.io/>. Each push that changes `public/` publishes them through `.github/workflows/pages.yml`. In the repository, Settings, Pages, Source must be set to GitHub Actions.
+
+GitHub Pages only serves files, so the server on Render must keep running: the database password has to stay on a server, never in the browser. The pages call `https://dcs-trendweb.onrender.com`, which allows them through `ALLOWED_ORIGIN`.
 
 ## API
 
