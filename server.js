@@ -253,7 +253,8 @@ async function main() {
     const asset = assets[url.pathname];
     if (asset) {
       const headers = { 'Cache-Control': 'no-cache', ETag: asset.etag };
-      if (req.headers['if-none-match'] === asset.etag) { res.writeHead(304, headers); return res.end(); }
+      // A proxy that compresses the file marks its copy of the tag as weak: W/"..."
+      if ((req.headers['if-none-match'] || '').replace(/^W\//, '') === asset.etag) { res.writeHead(304, headers); return res.end(); }
       return send(200, asset.body, asset.type, headers);
     }
 

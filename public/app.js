@@ -449,7 +449,7 @@ function drawChart() {
   }
   const value = p => (band ? p.avg : p.v);
   const at = (p, v) => `${x(p.t).toFixed(1)},${y(v).toFixed(1)}`;
-  const base = y(Math.max(y0, Math.min(0, y1))).toFixed(1);   // the wash reaches zero, or the axis if zero is off the chart
+  const base = y(y0 <= 0 && y1 >= 0 ? 0 : y0).toFixed(1);   // the wash reaches zero, or the axis if zero is off the chart
   for (const r of runs) {
     if (band) el('polygon', { points: [...r.map(p => at(p, p.max)), ...r.map(p => at(p, p.min)).reverse()].join(' '), fill: 'var(--band)' }, svg);
     else if (r.length > 1) el('polygon', { points: [`${x(r[0].t).toFixed(1)},${base}`, ...r.map(p => at(p, p.v)), `${x(r[r.length - 1].t).toFixed(1)},${base}`].join(' '), fill: 'var(--wash)' }, svg);
