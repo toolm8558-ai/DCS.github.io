@@ -22,7 +22,6 @@ function ist(ms) {
 }
 const fmtDate = ms => { const t = ist(ms); return `${pad(t.d)}-${pad(t.mo)}-${t.y}`; };
 const fmtTime = ms => { const t = ist(ms); return `${pad(t.h)}:${pad(t.mi)}`; };
-const fmtSec = ms => { const t = ist(ms); return `${pad(t.h)}:${pad(t.mi)}:${pad(t.s)}`; };
 const isoDate = ms => { const t = ist(ms); return `${t.y}-${pad(t.mo)}-${pad(t.d)}`; };
 const isoLocal = ms => `${isoDate(ms)}T${fmtTime(ms)}`;
 const todayStart = () => Date.parse(`${isoDate(Date.now())}T00:00:00Z`) - IST;
@@ -57,7 +56,9 @@ async function start() {
     $('keyForm').hidden = true;
     $('app').hidden = false;
     const s = status[0];
-    if (s && s.newestData) $('fresh').textContent = `Data up to ${fmtDate(Date.parse(s.newestData))} ${fmtTime(Date.parse(s.newestData))}`;
+    $('fresh').textContent = s && s.newestData
+      ? `Live database connected · Data through ${fmtDate(Date.parse(s.newestData))} ${fmtTime(Date.parse(s.newestData))}`
+      : 'Live database connected';
     if (!state.from) setDays(1, false);
     syncInputs();
     drawGroupBar();
@@ -91,7 +92,7 @@ function spark(d) {
   const W = 200, H = 34, known = d.points.filter(p => p.v !== undefined);
   const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none' });
   if (known.length < 2) return svg;
-  const band = d.bucketMinutes > 1 && d.type !== 'BOOL', val = p => (band ? p.avg : p.v);
+  const val = p => p.v;
   const vs = known.map(val), lo = Math.min(...vs), hi = Math.max(...vs);
   const x = t => (t - d.from) / (d.to - d.from) * W, y = v => H - 3 - (v - lo) / ((hi - lo) || 1) * (H - 6);
   let run = [];
@@ -102,7 +103,7 @@ function spark(d) {
 }
 
 function ovCard(d) {
-  const s = d.summary, band = d.bucketMinutes > 1 && d.type !== 'BOOL';
+  const s = d.summary;
   const last = [...d.points].reverse().find(p => p.v !== undefined);
   const whole = Math.round((d.to - d.from) / 60000);
   const c = document.createElement('button');
@@ -110,11 +111,11 @@ function ovCard(d) {
   const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = d.tag;
   const ds = document.createElement('div'); ds.className = 'ds'; ds.textContent = d.description || ''; ds.title = d.description || '';
   const vl = document.createElement('div'); vl.className = 'vl';
-  const v = last ? (band ? last.avg : last.v) : null;
+  const v = last ? last.v : null;
   vl.textContent = v === null ? '-' : num(v);
   if (d.unit) { const u = document.createElement('small'); u.textContent = ` ${d.unit}`; vl.append(u); }
   const mm = document.createElement('div'); mm.className = 'mm';
-  mm.textContent = d.type === 'BOOL' ? `On ${num(s.hoursAt1)} h, starts ${s.starts}` : `Min ${num(s.min)}  Max ${num(s.max)}  Avg ${num(s.avg)}`;
+  mm.textContent = d.type === 'BOOL' ? `On ${num(s.hoursAt1)} h · ${num(s.starts)} starts` : 'Latest recorded value';
   const rc = document.createElement('div'); rc.className = 'mm'; rc.textContent = `Recorded ${Math.round(s.minutes / whole * 100)}%`;
   c.append(nm, ds, vl, spark(d), mm, rc);
   c.addEventListener('click', () => { pick(d.tag); $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
@@ -129,15 +130,18 @@ async function loadGroup() {
   $('ovStat').textContent = 'Loading...';
   $('ovGrid').replaceChildren();
   $('ovNone').hidden = true;
+  $('ovError').hidden = true;
+  $('ovError').textContent = '';
   $('message').hidden = true;
   const query = tag => `tag=${encodeURIComponent(tag)}&from=${encodeURIComponent(state.from)}&to=${encodeURIComponent(state.to)}`;
   const results = new Array(g.tags.length);
   let next = 0, done = 0;
+  const failures = [];
   async function worker() {
     while (next < g.tags.length) {
       const i = next++;
       try { results[i] = await api(`/api/trend?${query(g.tags[i])}`); }
-      catch (e) { if (e.message === 'unauthorized') return; results[i] = null; }
+      catch (e) { if (e.message === 'unauthorized') return; results[i] = null; failures.push(`${g.tags[i]}: ${e.message}`); }
       done++;
       if (id === groupReq) $('ovStat').textContent = `Loading ${done} of ${g.tags.length}...`;
     }
@@ -151,6 +155,10 @@ async function loadGroup() {
   if (!withData.length) $('ovGrid').textContent = 'No data in this range for any tag in this group.';
   $('ovNone').hidden = !without.length;
   if (without.length) { $('ovNone').querySelector('summary').textContent = `No data / not found (${without.length})`; $('ovNone').querySelector('p').textContent = without.join(', '); }
+  if (failures.length) {
+    $('ovError').hidden = false;
+    $('ovError').textContent = `Could not load ${failures.length} tag${failures.length === 1 ? '' : 's'} from the database: ${failures.join('; ')}`;
+  }
   history.replaceState(null, '', `?${new URLSearchParams({ ...(params.get('embed') ? { embed: 1 } : {}), group: groupIdx, ...(state.tag ? { tag: state.tag } : {}), from: state.from, to: state.to })}`);
 }
 
@@ -254,29 +262,16 @@ function tile(label, value, unit, sub) {
   return box;
 }
 
-function peak(ms, date, oneDay) {
-  if (ms === undefined) return date ? fmtDate(Date.parse(date)) : '';
-  const time = data.summary.source === 'tag_daily' ? fmtSec(ms) : fmtTime(ms);
-  return oneDay ? `at ${time}` : `${fmtDate(ms)} ${time}`;
-}
-
 function render(days) {
   $('result').hidden = false;
-  const s = data.summary, u = data.unit;
+  const s = data.summary;
   $('tagName').textContent = data.tag;
-  $('tagDesc').textContent = [data.description, u, data.type].filter(Boolean).join(' | ');
-  const oneDay = data.to - data.from <= DAY;
+  $('tagDesc').textContent = [data.description, data.unit, data.type].filter(Boolean).join(' · ');
   const tiles = [];
   const isBool = data.type === 'BOOL';
   if (s.minutes) {
     if (isBool) {
       tiles.push(tile('Time at 1', num(s.hoursAt1), 'h'), tile('Starts (0 to 1)', num(s.starts)));
-    } else {
-      tiles.push(
-        tile('Minimum', num(s.min), u, peak(s.minAt, s.minDate, oneDay)),
-        tile('Maximum', num(s.max), u, peak(s.maxAt, s.maxDate, oneDay)),
-        tile('Average', num(s.avg), u),
-        tile('Total', s.total === undefined ? 'n/a' : num(s.total), s.totalUnit, s.total === undefined ? 'Only for flow and power' : 'For the minutes recorded'));
     }
   }
   const whole = Math.round((data.to - data.from) / 60000);
@@ -285,7 +280,7 @@ function render(days) {
 
   $('chartTitle').textContent = `${data.tag} trend, ${fmtDate(data.from)} ${fmtTime(data.from)} to ${fmtDate(data.to)} ${fmtTime(data.to)}`;
   $('chartNote').textContent = data.bucketMinutes > 1
-    ? `Each point covers ${data.bucketMinutes} minutes. The line is the average and the shaded band is the min and max. Pick up to 3 days to see every minute.`
+    ? `One value is shown every ${data.bucketMinutes} minutes for longer ranges. Pick up to 3 days to see every minute.`
     : (s.minutes ? 'Times are India time. Gaps in the line mean the tag was not recording.' : 'No data was recorded in this range.');
   drawChart();
   drawDays(days);
@@ -303,14 +298,14 @@ function drawDays(days) {
   const table = $('daysTable'), isBool = data.type === 'BOOL', body = table.tBodies[0];
   $('daysEmpty').hidden = days.length > 0;
   table.hidden = !days.length;
-  head(table, isBool ? ['Date', 'Time at 1 (h)', 'Starts', 'Minutes'] : ['Date', 'Min', 'Min time', 'Max', 'Max time', 'Average', `Total${days[0] && days[0].totalUnit ? ` (${days[0].totalUnit})` : ''}`, 'Minutes']);
+  head(table, isBool ? ['Date', 'Time at 1 (h)', 'Starts', 'Minutes'] : ['Date', 'Minutes recorded']);
   const rows = days.map(d => {
     const tr = document.createElement('tr');
     const start = Date.parse(`${d.date}T00:00:00Z`) - IST;
     tr.tabIndex = 0;
     if (start >= data.from && start + DAY <= data.to) tr.className = 'on';
     cells(tr, isBool ? [fmtDate(start), num(d.hoursAt1), d.starts, num(d.minutes)]
-      : [fmtDate(start), num(d.min), d.minAt ? fmtSec(d.minAt) : '', num(d.max), d.maxAt ? fmtSec(d.maxAt) : '', num(d.avg), d.total === undefined ? '' : num(d.total), num(d.minutes)]);
+      : [fmtDate(start), num(d.minutes)]);
     const open = () => { state.from = isoLocal(start); state.to = isoLocal(start + DAY); syncInputs(); document.querySelectorAll('[data-days]').forEach(b => b.classList.remove('on')); load(); };
     tr.addEventListener('click', open);
     tr.addEventListener('keydown', e => { if (e.key === 'Enter') open(); });
@@ -320,13 +315,13 @@ function drawDays(days) {
 }
 
 function drawRows() {
-  const table = $('rowsTable'), isBool = data.type === 'BOOL';
+  const table = $('rowsTable');
   const rows = data.points.filter(p => p.v !== undefined);
   $('rowsTitle').textContent = data.bucketMinutes > 1 ? `Values every ${data.bucketMinutes} minutes (${num(rows.length)} rows)` : `Values every minute (${num(rows.length)} rows)`;
-  head(table, isBool ? ['Date', 'Time', 'Value'] : ['Date', 'Time', 'Value', 'Min', 'Max', 'Average']);
+  head(table, ['Date', 'Time', 'Value']);
   table.tBodies[0].replaceChildren(...rows.map(p => {
     const tr = document.createElement('tr');
-    cells(tr, isBool ? [fmtDate(p.t), fmtTime(p.t), p.v] : [fmtDate(p.t), fmtTime(p.t), num(p.v), num(p.min), num(p.max), num(p.avg)]);
+    cells(tr, [fmtDate(p.t), fmtTime(p.t), p.v === true || p.v === 1 ? 'ON' : p.v === false || p.v === 0 ? 'OFF' : num(p.v)]);
     return tr;
   }));
 }
@@ -334,8 +329,8 @@ function drawRows() {
 $('csv').addEventListener('click', () => {
   if (!data) return;
   const quote = v => `"${String(v).replace(/"/g, '""')}"`;
-  const lines = [['Date', 'Time', 'Value', 'Min', 'Max', 'Average'].join(',')];
-  for (const p of data.points) if (p.v !== undefined) lines.push([fmtDate(p.t), fmtTime(p.t), p.v, p.min, p.max, p.avg].map(quote).join(','));
+  const lines = [['Date', 'Time', 'Value'].join(',')];
+  for (const p of data.points) if (p.v !== undefined) lines.push([fmtDate(p.t), fmtTime(p.t), p.v].map(quote).join(','));
   const url = URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/csv' }));
   const a = document.createElement('a');
   a.href = url;
@@ -376,8 +371,7 @@ function drawChart() {
 
   const m = { l: 58, r: 14, t: 10, b: 26 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
   const isBool = data.type === 'BOOL';
-  const band = data.bucketMinutes > 1 && !isBool;
-  let lo = Math.min(...known.map(p => (band ? p.min : p.v))), hi = Math.max(...known.map(p => (band ? p.max : p.v)));
+  let lo = Math.min(...known.map(p => p.v)), hi = Math.max(...known.map(p => p.v));
   if (isBool) { lo = 0; hi = 1; }
   const ticks = isBool ? [0, 1] : niceTicks(lo, hi, 5);
   const y0 = Math.min(ticks[0], lo), y1 = Math.max(ticks[ticks.length - 1], hi);
@@ -405,12 +399,8 @@ function drawChart() {
     if (!run) runs.push(run = []);
     run.push(p);
   }
-  const value = p => (band ? p.avg : p.v);
+  const value = p => p.v;
   for (const r of runs) {
-    if (band) {
-      const top = r.map(p => `${x(p.t).toFixed(1)},${y(p.max).toFixed(1)}`), low = r.map(p => `${x(p.t).toFixed(1)},${y(p.min).toFixed(1)}`).reverse();
-      el('polygon', { points: [...top, ...low].join(' '), fill: 'var(--band)' }, svg);
-    }
     const line = [];
     r.forEach((p, i) => {
       if (isBool && i) line.push(`${x(p.t).toFixed(1)},${y(value(r[i - 1])).toFixed(1)}`);
@@ -432,7 +422,6 @@ function drawChart() {
     const big = document.createElement('b');
     big.textContent = p.v === undefined ? 'Not recording' : `${num(value(p))}${data.unit ? ` ${data.unit}` : ''}`;
     tip.append(big, when);
-    if (p.v !== undefined && !isBool && (p.min !== p.max)) { const r = document.createElement('div'); r.textContent = `Min ${num(p.min)}, max ${num(p.max)}`; tip.append(r); }
     if (p.v === undefined) dot.setAttribute('visibility', 'hidden');
     else { dot.setAttribute('cx', px); dot.setAttribute('cy', y(value(p))); dot.setAttribute('visibility', 'visible'); }
     tip.hidden = false;
