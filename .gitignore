@@ -2,3 +2,4 @@ web.ini
 node_modules/
 runtime/
 .claude/
+Start.bat
