@@ -5,11 +5,16 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const zlib = require('node:zlib');
 const { MongoClient } = require('mongodb');
 
 const IST = 330 * 60000, MINUTE = 60000, DAY = 1440 * MINUTE;
 const MAX_DAYS = 31, FULL_DETAIL_MINUTES = 4320, TARGET_POINTS = 2000;
+// Each trip to the database costs far more than the query itself, so answers are kept briefly.
 const LIVE_CACHE_MS = 1000;   // live_latest changes once a second, however many people are watching
+const HISTORY_CACHE_MS = MINUTE, CACHE_ENTRIES = 200;   // history arrives about every 10 minutes
+const TAGS_EVERY_MS = 60 * MINUTE;
+const GZIP_FROM_BYTES = 1024;
 const RATES = { 't/h': 't', 'm3/h': 'm3', MW: 'MWh', kW: 'kWh' };
 const STATIC = {
   '/': ['index.html', 'text/html; charset=utf-8'],
@@ -119,80 +124,92 @@ async function main() {
   const minute = db.collection('trend_minute'), live = db.collection('live_latest');
   const tags = db.collection('tag_info'), status = db.collection('service_status');
 
-  async function tagInfo(name) {
+  // tag_info hardly ever changes, so it is held here and search and lookups need no database trip.
+  let allTags = new Map();
+  async function loadTags() {
+    allTags = new Map((await tags.find({}).sort({ _id: 1 }).toArray()).map(t => [t._id, t]));
+  }
+  await loadTags();
+  setInterval(() => loadTags().catch(e => console.error(new Date().toISOString(), 'tag_info', e.message)), TAGS_EVERY_MS);
+
+  const answers = new Map();
+  function cached(key, ms, read) {
+    const hit = answers.get(key);
+    if (hit && Date.now() - hit.at < ms) return hit.value;
+    if (answers.size >= CACHE_ENTRIES) answers.clear();
+    const value = read().catch(e => { answers.delete(key); throw e; });
+    answers.set(key, { at: Date.now(), value });
+    return value;
+  }
+
+  function tagInfo(name) {
     if (!name) throw new BadRequest('tag is required');
-    const info = await tags.findOne({ _id: name });
+    const info = allTags.get(name);
     if (!info) throw new BadRequest(`Tag ${name} was not found`);
     if (info.type === 'BOOL') throw new BadRequest(`${name} is an on/off tag. These are not saved, so it has no trend`);
     return { tag: info._id, description: info.description, unit: info.unit, type: info.type, lo: info.lo, hi: info.hi };
   }
 
-  const liveInfo = new Map();
-  let liveRead = null, liveReadAt = 0;
-
   async function readLive() {
     const docs = await live.find({}).sort({ _id: 1 }).toArray();
-    const unknown = docs.map(d => d._id).filter(name => !liveInfo.has(name));
-    if (unknown.length) for (const t of await tags.find({ _id: { $in: unknown } }).toArray()) liveInfo.set(t._id, t);
     return {
       now: Date.now(),
       tags: docs.filter(d => d.values && d.values.length).map(d => {
-        const info = liveInfo.get(d._id) || {};
+        const info = allTags.get(d._id) || {};
         return { tag: d._id, description: info.description, unit: d.unit, lo: info.lo, hi: info.hi, t: d.values[0].t.getTime(), v: d.values[0].v };
       })
     };
   }
 
   const routes = {
-    async '/api/tags'(q) {
-      const text = (q.get('q') || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const filter = { type: { $ne: 'BOOL' } };
-      if (text) filter.$or = [{ _id: { $regex: text, $options: 'i' } }, { description: { $regex: text, $options: 'i' } }];
+    '/api/tags'(q) {
+      const text = (q.get('q') || '').trim().toLowerCase();
       const limit = Math.min(Number(q.get('limit')) || 30, 100);
-      const list = await tags.find(filter).sort({ _id: 1 }).limit(limit).toArray();
-      return list.map(t => ({ tag: t._id, description: t.description, unit: t.unit, type: t.type }));
+      const found = [...allTags.values()].filter(t => t.type !== 'BOOL'
+        && (!text || t._id.toLowerCase().includes(text) || (t.description || '').toLowerCase().includes(text)));
+      return found.slice(0, limit).map(t => ({ tag: t._id, description: t.description, unit: t.unit, type: t.type }));
     },
 
-    async '/api/trend'(q) {
-      const info = await tagInfo(q.get('tag'));
+    '/api/trend'(q) {
+      const info = tagInfo(q.get('tag'));
       const { from, to } = parseRange(q);
-      const docs = await minute.find({ tag: info.tag, t: { $gte: new Date(from), $lt: new Date(to) } }, { projection: { _id: 0, t: 1, v: 1 } }).sort({ t: 1 }).toArray();
-      const minutes = Math.round((to - from) / MINUTE);
-      const rows = toRows(docs, from, minutes);
-      const bucketMinutes = minutes <= FULL_DETAIL_MINUTES ? 1 : Math.ceil(minutes / TARGET_POINTS);
-      const points = bucketMinutes === 1
-        ? rows.map((r, i) => r || { t: from + i * MINUTE })
-        : bucketize(rows, bucketMinutes).map((p, i) => (p.gap ? { t: from + i * bucketMinutes * MINUTE } : p));
-      return { ...info, from, to, requestedMinutes: minutes, bucketMinutes, summary: summarize(rows, info), points };
+      return cached(`trend ${info.tag} ${from} ${to}`, HISTORY_CACHE_MS, async () => {
+        const docs = await minute.find({ tag: info.tag, t: { $gte: new Date(from), $lt: new Date(to) } }, { projection: { _id: 0, t: 1, v: 1 } }).toArray();
+        const minutes = Math.round((to - from) / MINUTE);
+        const rows = toRows(docs, from, minutes);
+        const bucketMinutes = minutes <= FULL_DETAIL_MINUTES ? 1 : Math.ceil(minutes / TARGET_POINTS);
+        const points = bucketMinutes === 1
+          ? rows.map((r, i) => r || { t: from + i * MINUTE })
+          : bucketize(rows, bucketMinutes).map((p, i) => (p.gap ? { t: from + i * bucketMinutes * MINUTE } : p));
+        return { ...info, from, to, bucketMinutes, summary: summarize(rows, info), points };
+      });
     },
 
-    async '/api/days'(q) {
-      const info = await tagInfo(q.get('tag'));
+    '/api/days'(q) {
+      const info = tagInfo(q.get('tag'));
       const { from, to } = parseRange(q);
-      const days = await minute.aggregate([
-        { $match: { tag: info.tag, t: { $gte: new Date(from), $lt: new Date(to) } } },
-        { $group: {
-          _id: { $dateToString: { date: '$t', format: '%Y-%m-%d', timezone: 'Asia/Kolkata' } },
-          min: { $min: '$v' }, max: { $max: '$v' }, avg: { $avg: '$v' }, minutes: { $sum: 1 },
-          minAt: { $top: { sortBy: { v: 1 }, output: '$t' } }, maxAt: { $top: { sortBy: { v: -1 }, output: '$t' } }
-        } },
-        { $sort: { _id: -1 } }
-      ]).toArray();
-      return {
-        ...info,
-        days: days.map(d => ({
-          date: d._id, min: d.min, max: d.max, avg: round(d.avg), minutes: d.minutes,
-          minAt: d.minAt.getTime(), maxAt: d.maxAt.getTime(), ...totalOf(d.avg, d.minutes, info.unit)
-        }))
-      };
+      return cached(`days ${info.tag} ${from} ${to}`, HISTORY_CACHE_MS, async () => {
+        const days = await minute.aggregate([
+          { $match: { tag: info.tag, t: { $gte: new Date(from), $lt: new Date(to) } } },
+          { $group: {
+            _id: { $dateToString: { date: '$t', format: '%Y-%m-%d', timezone: 'Asia/Kolkata' } },
+            min: { $min: '$v' }, max: { $max: '$v' }, avg: { $avg: '$v' }, minutes: { $sum: 1 },
+            minAt: { $top: { sortBy: { v: 1 }, output: '$t' } }, maxAt: { $top: { sortBy: { v: -1 }, output: '$t' } }
+          } },
+          { $sort: { _id: -1 } }
+        ]).toArray();
+        return {
+          ...info,
+          days: days.map(d => ({
+            date: d._id, min: d.min, max: d.max, avg: round(d.avg), minutes: d.minutes,
+            minAt: d.minAt.getTime(), maxAt: d.maxAt.getTime(), ...totalOf(d.avg, d.minutes, info.unit)
+          }))
+        };
+      });
     },
 
     '/api/live'() {
-      if (!liveRead || Date.now() - liveReadAt >= LIVE_CACHE_MS) {
-        liveReadAt = Date.now();
-        liveRead = readLive().catch(e => { liveRead = null; throw e; });
-      }
-      return liveRead;
+      return cached('live', LIVE_CACHE_MS, readLive);
     },
 
     async '/api/status'() {
@@ -206,11 +223,25 @@ async function main() {
     return given.length === want.length && crypto.timingSafeEqual(given, want);
   }
 
+  // Read once: the files only change with a new deploy. The browser asks again and gets 304 until then.
+  const assets = {};
+  for (const [route, [file, type]] of Object.entries(STATIC)) {
+    const body = fs.readFileSync(path.join(__dirname, 'public', file));
+    assets[route] = { body, type, etag: `"${crypto.createHash('sha1').update(body).digest('hex').slice(0, 16)}"` };
+  }
+
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://local');
-    const send = (code, body, type = 'application/json; charset=utf-8') => {
-      res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
-      res.end(body);
+    const send = (code, body, type = 'application/json; charset=utf-8', headers = { 'Cache-Control': 'no-store' }) => {
+      const all = { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff', ...headers };
+      let data = Buffer.from(body);
+      if (data.length >= GZIP_FROM_BYTES && !type.startsWith('image/') && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
+        data = zlib.gzipSync(data, { level: zlib.constants.Z_BEST_SPEED });
+        all['Content-Encoding'] = 'gzip';
+        all.Vary = 'Accept-Encoding';
+      }
+      res.writeHead(code, all);
+      res.end(data);
     };
     if (cfg.origin) {
       res.setHeader('Access-Control-Allow-Origin', cfg.origin);
@@ -219,8 +250,12 @@ async function main() {
     if (req.method === 'OPTIONS') return send(204, '');
     if (req.method !== 'GET') return send(405, JSON.stringify({ error: 'Only GET is supported' }));
 
-    const asset = STATIC[url.pathname];
-    if (asset) return send(200, fs.readFileSync(path.join(__dirname, 'public', asset[0])), asset[1]);
+    const asset = assets[url.pathname];
+    if (asset) {
+      const headers = { 'Cache-Control': 'no-cache', ETag: asset.etag };
+      if (req.headers['if-none-match'] === asset.etag) { res.writeHead(304, headers); return res.end(); }
+      return send(200, asset.body, asset.type, headers);
+    }
 
     const route = routes[url.pathname];
     if (!route) return send(404, JSON.stringify({ error: 'Not found' }));

@@ -72,28 +72,6 @@ main.wrap{padding-top:24px;padding-bottom:48px}
 #show{height:42px;padding:0 20px;background:var(--action);color:#fff;border:0;border-radius:7px;font-weight:600;white-space:nowrap}
 #show:hover{background:var(--action-hover)}
 
-.groupBar{display:flex;gap:8px;flex-wrap:wrap;margin:-8px 0 20px}
-.groupBar button{background:var(--surface);border:1px solid var(--axis);border-radius:7px;padding:8px 13px;font-size:14px;color:var(--ink2);text-align:left}
-.groupBar button:hover{background:var(--hover);color:var(--ink)}
-.groupBar button.on{background:var(--strip);border-color:var(--strip);color:#fff}
-#overview{margin-bottom:26px}
-.ovHead{display:flex;justify-content:space-between;align-items:baseline;gap:4px 16px;flex-wrap:wrap;margin-bottom:10px}
-.ovHead h2{font-size:18px;font-weight:600}
-.ovHead span{font-size:14px;color:var(--ink2)}
-.ovGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.ocard{background:none;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);margin:0 -1px -1px 0;padding:12px 15px 11px;text-align:left;min-width:0;color:var(--ink)}
-.ocard:hover{background:var(--hover)}
-.ocard.on{background:var(--hover);box-shadow:inset 0 -3px 0 var(--action)}
-.ocard:focus-visible{outline-offset:-3px}
-.ocard .ds{font-size:14px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ocard .nm{font-size:12.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ocard .vl{font-size:24px;font-weight:600;line-height:1.3;white-space:nowrap}
-.ocard .vl small{font-size:13px;font-weight:400;color:var(--ink2)}
-.ocard svg{display:block;width:100%;height:34px;margin:4px 0}
-.ocard polyline{fill:none;stroke:var(--series);stroke-width:1.5;stroke-linejoin:round;vector-effect:non-scaling-stroke}
-#ovNone{margin-top:9px;font-size:13.5px;color:var(--ink3)}
-#ovNone summary{cursor:pointer}
-#ovNone p{margin-top:4px;overflow-wrap:anywhere}
 .title{display:flex;justify-content:space-between;align-items:baseline;gap:6px 20px;flex-wrap:wrap;margin-bottom:12px}
 .title h2{font-size:24px;font-weight:600;letter-spacing:-.2px;line-height:1.25}
 .title h2 small{font-size:14px;font-weight:400;color:var(--ink3);letter-spacing:0;margin-left:8px;white-space:nowrap}
@@ -183,13 +161,6 @@ body.embed main{padding-top:12px}
       <label class="field">From<input id="from" type="datetime-local"></label>
       <label class="field">To<input id="to" type="datetime-local"></label>
       <button type="button" id="show">Show period</button>
-    </div>
-    <div class="groupBar" id="groupBar" role="group" aria-label="Tag groups"></div>
-    <div id="overview" hidden>
-      <div class="ovHead"><h2 id="ovTitle"></h2><span id="ovStat" role="status"></span></div>
-      <div class="ovGrid" id="ovGrid"></div>
-      <details id="ovNone" hidden><summary></summary><p></p></details>
-      <div id="ovError" class="msg err" hidden></div>
     </div>
     <div id="result" hidden>
       <div class="title"><h2><span id="tagName"></span><small id="tagCode"></small></h2><p id="period"></p></div>

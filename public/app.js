@@ -13,7 +13,7 @@ if (location.hash.startsWith('#key=')) {
 }
 
 let state = { tag: params.get('tag') || '', from: params.get('from') || '', to: params.get('to') || '' };
-let data = null, hover = null, request = 0;
+let data = null, hover = null, request = 0, rowsShown = null;
 
 // All dates on this page are India time, whatever the viewer's computer is set to.
 const pad = n => String(n).padStart(2, '0');
@@ -69,24 +69,23 @@ $('theme').addEventListener('click', () => {
 
 async function start() {
   if (!key) return showKey();
-  try {
-    await refreshStatus();
-    $('gate').hidden = true;
-    $('app').hidden = false;
-    showTheme();
-    if (!state.from) setPreset('today', false);
-    syncInputs();
-    drawGroupBar();
-    loadGroup();
-    await pollLive();
-    clearInterval(statusTimer);
-    statusTimer = setInterval(() => refreshStatus().catch(() => {}), STATUS_EVERY_MS);
-    if (!state.tag && liveTags.length) state.tag = liveTags[0];
-    if (state.tag) { $('tagInput').value = state.tag; load(); }
-    else showMessage('Search for a tag to see its values.');
-  } catch (e) {
-    if (e.message !== 'unauthorized') showKey(e.message);
-  }
+  // The page opens at once and each part fills in as its data arrives. A wrong key returns to the gate.
+  $('gate').hidden = true;
+  $('app').hidden = false;
+  showTheme();
+  if (!state.from) setPreset('today', false);
+  syncInputs();
+  clearInterval(statusTimer);
+  statusTimer = setInterval(() => refreshStatus().catch(() => {}), STATUS_EVERY_MS);
+  refreshStatus().catch(() => {});
+  if (state.tag) { $('tagInput').value = state.tag; load(); }
+  try { await pollLive(); } catch (e) { return; }
+  if (state.tag) return;
+  if (!liveTags.length) return showMessage('Search for a tag to see its values.');
+  state.tag = liveTags[0];
+  $('tagInput').value = state.tag;
+  liveCells.get(state.tag).cell.setAttribute('aria-pressed', 'true');
+  load();
 }
 
 async function refreshStatus() {
@@ -168,102 +167,6 @@ async function pollLive() {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && key && !$('app').hidden) pollLive().catch(() => {}); });
 
-// Tag groups shown as an overview. Only tags that have data in the chosen period are drawn.
-const GROUPS = [
-  { name: 'Vibration, displacement and bearing temperature', tags: `ZIA_201A.PV ZIA_201B.PV ZIA_202.PV VIA_201A.PV VIA_201B.PV VIB_202A.PV VIB_202B.PV VIB_203A.PV VIB_203B.PV VIB_204A.PV VIB_204B.PV VI_205A.PV VI_205B.PV VI_206A.PV VI_206B.PV VI_251A.PV VI_251B.PV VI_252A.PV VI_252B.PV TE_201.PV TE_202.PV TE_203.PV TE_204.PV TE_205.PV TE_206.PV TE_207.PV TE_208.PV GEN_DE GEN_NDE`.split(' ') },
-  { name: 'Process (load, pressure, temperature, flow, level)', tags: `TG_LOAD.PV PT_02.PV TT_07ABC FT_02_COMP LT_01_FINAL FW_FLOW_TOT PT100_FINAL FT200_FINAL FT_201.PV PT_01.PV ZT_S01 PT_26.PV TE_100_1.PV TE_01.PV TE_02.PV TE_10.PV TT_03.PV TT_04.PV TT_05.PV TE_13.PV TE_26.PV TE_200.PV TE_201.PV DT_200.PV DT_201.PV DT_203.PV PT_100A.PV PT_100B.PV DT_101.PV DT_109.PV DT_102.PV DT_103.PV DT_104.PV TE_102.PV TE_105.PV TE_106.PV TE_107.PV AT_100.PV LT_51AVG LT_53.PV TE_104.PV FT_03.PV BAG_FLOW_TOTAL`.split(' ') }
-];
-const GROUP_WORKERS = 6;
-let groupIdx = Number(params.get('group') || -1), groupReq = 0;
-
-function drawGroupBar() {
-  $('groupBar').replaceChildren(...GROUPS.map((g, i) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = `${g.name} (${g.tags.length})`;
-    b.classList.toggle('on', i === groupIdx);
-    b.setAttribute('aria-pressed', String(i === groupIdx));
-    b.addEventListener('click', () => { groupIdx = i === groupIdx ? -1 : i; drawGroupBar(); loadGroup(); saveUrl(); });
-    return b;
-  }));
-}
-
-function groupSpark(d) {
-  const W = 200, H = 34, known = d.points.filter(p => p.v !== undefined);
-  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', 'aria-hidden': 'true' });
-  if (known.length < 2) return svg;
-  const vs = known.map(p => p.v), lo = Math.min(...vs), hi = Math.max(...vs);
-  const x = t => (t - d.from) / (d.to - d.from) * W, y = v => H - 3 - (v - lo) / ((hi - lo) || 1) * (H - 6);
-  let run = [];
-  const flush = () => { if (run.length > 1) el('polyline', { points: run.join(' ') }, svg); run = []; };
-  for (const p of d.points) { if (p.v === undefined) flush(); else run.push(`${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`); }
-  flush();
-  return svg;
-}
-
-function groupCard(d) {
-  const last = [...d.points].reverse().find(p => p.v !== undefined);
-  const possible = Math.round((Math.min(d.to, Date.now()) - d.from) / MINUTE);
-  const c = document.createElement('button');
-  c.type = 'button'; c.className = 'ocard'; c.dataset.tag = d.tag;
-  c.classList.toggle('on', d.tag === state.tag);
-  const name = document.createElement('div'); name.className = 'ds'; name.textContent = d.description || d.tag; name.title = d.tag;
-  const code = document.createElement('div'); code.className = 'nm'; code.textContent = d.tag;
-  const value = document.createElement('div'); value.className = 'vl'; value.textContent = num(last.v);
-  if (d.unit) { const u = document.createElement('small'); u.textContent = ` ${d.unit}`; value.append(u); }
-  const seen = document.createElement('div'); seen.className = 'nm';
-  seen.textContent = `Latest saved value, recorded ${Math.min(100, Math.round(d.summary.minutes / possible * 100))}%`;
-  c.append(name, code, value, groupSpark(d), seen);
-  c.addEventListener('click', () => { pick(d.tag); $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
-  return c;
-}
-
-async function loadGroup() {
-  if (groupIdx < 0 || !GROUPS[groupIdx]) { $('overview').hidden = true; return; }
-  const g = GROUPS[groupIdx], id = ++groupReq;
-  $('overview').hidden = false;
-  $('ovTitle').textContent = g.name;
-  $('ovStat').textContent = 'Loading the group.';
-  $('ovGrid').replaceChildren();
-  $('ovGrid').hidden = true;
-  $('ovNone').hidden = true;
-  $('ovError').hidden = true;
-  const query = tag => `tag=${encodeURIComponent(tag)}&from=${encodeURIComponent(state.from)}&to=${encodeURIComponent(state.to)}`;
-  const results = new Array(g.tags.length), failures = [];
-  let next = 0, done = 0;
-  async function worker() {
-    while (next < g.tags.length) {
-      const i = next++;
-      try { results[i] = await api(`/api/trend?${query(g.tags[i])}`); }
-      catch (e) {
-        if (e.message === 'unauthorized') return;
-        results[i] = null;
-        if (!/was not found|on\/off tag/.test(e.message)) failures.push(`${g.tags[i]}: ${e.message}`);
-      }
-      done++;
-      if (id === groupReq) $('ovStat').textContent = `Loading ${done} of ${g.tags.length} tags.`;
-    }
-  }
-  await Promise.all(Array.from({ length: GROUP_WORKERS }, worker));
-  if (id !== groupReq) return;
-  const withData = [], without = [];
-  g.tags.forEach((t, i) => { const d = results[i]; if (d && d.summary.minutes) withData.push(d); else without.push(t); });
-  $('ovGrid').replaceChildren(...withData.map(groupCard));
-  $('ovGrid').hidden = !withData.length;
-  $('ovStat').textContent = `${withData.length} of ${g.tags.length} tags have data in this period`;
-  $('ovNone').hidden = !without.length;
-  $('ovNone').querySelector('summary').textContent = `No data in this period (${without.length})`;
-  $('ovNone').querySelector('p').textContent = without.join(', ');
-  $('ovError').hidden = !failures.length;
-  $('ovError').textContent = failures.length ? `${failures.length} tags could not be read from the database: ${failures.join('; ')}` : '';
-}
-
-function saveUrl() {
-  history.replaceState(null, '', `?${new URLSearchParams({ ...(params.get('embed') ? { embed: 1 } : {}), ...(groupIdx >= 0 ? { group: groupIdx } : {}), ...(state.tag ? { tag: state.tag } : {}), from: state.from, to: state.to })}`);
-}
-
-function refresh() { loadGroup(); load(); }
-
 // Period.
 function setPreset(name, reload = true) {
   const now = Math.floor(Date.now() / MINUTE) * MINUTE, t = todayStart();
@@ -273,7 +176,7 @@ function setPreset(name, reload = true) {
   state.to = isoLocal(to);
   syncInputs();
   markPreset(name);
-  if (reload) refresh();
+  if (reload) load();
 }
 function markPreset(name) { document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', b.dataset.preset === name)); }
 function syncInputs() { $('from').value = state.from; $('to').value = state.to; }
@@ -282,7 +185,7 @@ document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('clic
 $('show').addEventListener('click', () => {
   state.from = $('from').value; state.to = $('to').value;
   markPreset('');
-  refresh();
+  load();
 });
 
 // Tag search.
@@ -326,7 +229,6 @@ function pick(tag) {
   $('tagInput').value = tag;
   closeMatches();
   liveCells.forEach((c, name) => c.cell.setAttribute('aria-pressed', String(name === tag)));
-  document.querySelectorAll('.ocard').forEach(c => c.classList.toggle('on', c.dataset.tag === tag));
   load();
 }
 
@@ -345,19 +247,23 @@ async function load() {
     const query = `tag=${encodeURIComponent(state.tag)}&from=${encodeURIComponent(state.from)}&to=${encodeURIComponent(state.to)}`;
     const end = parseLocal(state.to) - 1;
     const dayQuery = `tag=${encodeURIComponent(state.tag)}&from=${isoDate(end - 29 * DAY)}&to=${isoDate(end)}`;
-    const [trend, days] = await Promise.all([api(`/api/trend?${query}`), api(`/api/days?${dayQuery}`)]);
+    const days = api(`/api/days?${dayQuery}`).catch(e => e);   // the figures and chart do not wait for this
+    const trend = await api(`/api/trend?${query}`);
     if (id !== request) return;
     data = trend;
-    saveUrl();
-    render(days.days);
+    history.replaceState(null, '', `?${new URLSearchParams({ ...(params.get('embed') ? { embed: 1 } : {}), tag: state.tag, from: state.from, to: state.to })}`);
+    render();
     $('message').hidden = true;
+    $('chartBox').style.opacity = 1;
+    const reply = await days;
+    if (id === request) drawDays(reply);
   } catch (e) {
     if (id !== request || e.message === 'unauthorized') return;
     $('result').hidden = true;
     data = null;
     showMessage(e.message, true);
+    $('chartBox').style.opacity = 1;
   }
-  $('chartBox').style.opacity = 1;
 }
 
 function figure(label, value, unit, sub, lead) {
@@ -373,7 +279,7 @@ function figure(label, value, unit, sub, lead) {
 
 const when = (ms, oneDay) => (oneDay ? `at ${fmtTime(ms)}` : `${fmtDate(ms)} ${fmtTime(ms)}`);
 
-function render(days) {
+function render() {
   $('result').hidden = false;
   const s = data.summary, u = data.unit;
   $('tagName').textContent = data.description || data.tag;
@@ -406,8 +312,8 @@ function render(days) {
     ? `Each point covers ${data.bucketMinutes} minutes: the line is the average and the shaded band is the minimum and maximum. Choose up to 3 days to see every minute.`
     : (s.minutes ? 'Gaps in the line mean nothing was recorded. History arrives about every 10 minutes.' : 'Choose another period, or check that this tag was recording.');
   drawChart();
-  drawDays(days);
-  drawRows();
+  $('daysTable').style.opacity = .5;
+  drawRowsIfOpen();
 }
 
 function cells(row, values) { for (const v of values) { const td = document.createElement('td'); td.textContent = v; row.append(td); } }
@@ -417,10 +323,13 @@ function head(table, names) {
   table.tHead.replaceChildren(tr);
 }
 
-function drawDays(days) {
+function drawDays(reply) {
+  const failed = reply instanceof Error, days = failed ? [] : reply.days;
   const table = $('daysTable'), hasTotal = days.some(d => d.total !== undefined);
+  $('daysEmpty').textContent = failed ? reply.message : 'No recorded days in the last 30 days of this period.';
   $('daysEmpty').hidden = days.length > 0;
   table.hidden = !days.length;
+  table.style.opacity = 1;
   const unit = data.unit ? ` (${data.unit})` : '';
   head(table, ['Date', `Average${unit}`, ...(hasTotal ? [`Total (${days.find(d => d.totalUnit).totalUnit})`] : []), 'Minimum', 'At', 'Maximum', 'At', 'Minutes']);
   table.tBodies[0].replaceChildren(...days.map(d => {
@@ -436,7 +345,10 @@ function drawDays(days) {
   }));
 }
 
-function drawRows() {
+// A period can hold thousands of rows, so they are built only when someone opens the table.
+function drawRowsIfOpen() {
+  if ($('paneRows').hidden || rowsShown === data) return;
+  rowsShown = data;
   const table = $('rowsTable'), band = data.bucketMinutes > 1;
   const rows = data.points.filter(p => p.v !== undefined);
   head(table, band ? ['Date', 'Time', 'Last value', 'Minimum', 'Maximum', 'Average'] : ['Date', 'Time', 'Value']);
@@ -452,6 +364,7 @@ function showTab(days) {
   $('tabRows').setAttribute('aria-selected', String(!days));
   $('paneDays').hidden = !days;
   $('paneRows').hidden = days;
+  drawRowsIfOpen();
 }
 $('tabDays').addEventListener('click', () => showTab(true));
 $('tabRows').addEventListener('click', () => showTab(false));

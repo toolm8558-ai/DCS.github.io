@@ -12,7 +12,6 @@ Read-only: this site can look at plant data but has no way to change it.</p>
 - **Live values at the top.** Key plant tags refresh on their own every 2 seconds, each with its current value, a short recent line and its position within the tag's range. The page says so clearly if live reading stops.
 - **Pick any tag and any period.** Use a quick period (1 hour, 8 hours, today, yesterday, 7 days, 30 days) or set your own From and To, up to 31 days.
 - **Average and total first.** The selected period's average, total, minimum, maximum and recorded share sit above the chart.
-- **Tag groups.** Open the vibration and bearing group or the process group to see the latest saved value and trend of every tag in it, then pick one to open it.
 - **Trend chart.** Hover, tap or use the arrow keys to read any point. Gaps show when nothing was recorded.
 - **Tables and export.** See a daily summary or every value, and download the period as CSV.
 - **Works everywhere.** Responsive from phone to control-room screen, with light and dark views.
