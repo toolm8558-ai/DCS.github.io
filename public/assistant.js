@@ -7,10 +7,115 @@ const assistant = {
 const ai = id => document.getElementById(id);
 const ASSISTANT_API = location.hostname.endsWith('.github.io') ? 'https://dcs-trendweb.onrender.com' : '';
 
-function addAiMessage(text, kind = '') {
+function appendInline(parent, text) {
+  const pattern = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\*[^*\n]+\*|_[^_\n]+_)/g;
+  let start = 0, match;
+  while ((match = pattern.exec(text))) {
+    parent.append(document.createTextNode(text.slice(start, match.index)));
+    const token = match[0], content = token.slice(token.startsWith('**') || token.startsWith('__') ? 2 : 1, -(token.startsWith('**') || token.startsWith('__') ? 2 : 1));
+    const element = document.createElement(token.startsWith('**') || token.startsWith('__') ? 'strong' : token.startsWith('`') ? 'code' : 'em');
+    element.textContent = content;
+    parent.append(element);
+    start = pattern.lastIndex;
+  }
+  parent.append(document.createTextNode(text.slice(start)));
+}
+
+function tableCells(line) {
+  return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => cell.trim());
+}
+
+function renderMarkdown(container, text) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  let index = 0;
+  const isTableRule = line => tableCells(line).length > 1 && tableCells(line).every(cell => /^:?-{3,}:?$/.test(cell));
+
+  while (index < lines.length) {
+    const line = lines[index].trim();
+    if (!line) { index++; continue; }
+
+    if (index + 1 < lines.length && line.includes('|') && isTableRule(lines[index + 1])) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'ai-table-wrap';
+      const table = document.createElement('table');
+      const head = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      for (const cell of tableCells(line)) {
+        const th = document.createElement('th');
+        appendInline(th, cell);
+        headerRow.append(th);
+      }
+      head.append(headerRow);
+      table.append(head);
+      const body = document.createElement('tbody');
+      index += 2;
+      while (index < lines.length && lines[index].includes('|') && lines[index].trim()) {
+        const row = document.createElement('tr');
+        for (const cell of tableCells(lines[index])) {
+          const td = document.createElement('td');
+          appendInline(td, cell);
+          row.append(td);
+        }
+        body.append(row);
+        index++;
+      }
+      table.append(body);
+      wrapper.append(table);
+      container.append(wrapper);
+      continue;
+    }
+
+    const heading = /^(#{1,3})\s+(.+)$/.exec(line);
+    if (heading) {
+      const element = document.createElement(heading[1].length === 1 ? 'h3' : 'h4');
+      appendInline(element, heading[2]);
+      container.append(element);
+      index++;
+      continue;
+    }
+
+    if (/^(---+|\*\*\*+)$/.test(line)) {
+      container.append(document.createElement('hr'));
+      index++;
+      continue;
+    }
+
+    const listMatch = /^\s*([-*]|\d+\.)\s+(.+)$/.exec(lines[index]);
+    if (listMatch) {
+      const ordered = /^\d/.test(listMatch[1]);
+      const list = document.createElement(ordered ? 'ol' : 'ul');
+      while (index < lines.length) {
+        const item = /^\s*([-*]|\d+\.)\s+(.+)$/.exec(lines[index]);
+        if (!item || /^\d/.test(item[1]) !== ordered) break;
+        const li = document.createElement('li');
+        appendInline(li, item[2]);
+        list.append(li);
+        index++;
+      }
+      container.append(list);
+      continue;
+    }
+
+    const paragraph = document.createElement('p');
+    const paragraphLines = [];
+    while (index < lines.length && lines[index].trim() &&
+        !(index + 1 < lines.length && lines[index].includes('|') && isTableRule(lines[index + 1])) &&
+        !/^\s*([-*]|\d+\.)\s+/.test(lines[index]) &&
+        !/^#{1,3}\s+/.test(lines[index].trim()) &&
+        !/^(---+|\*\*\*+)$/.test(lines[index].trim())) {
+      paragraphLines.push(lines[index].trim());
+      index++;
+    }
+    appendInline(paragraph, paragraphLines.join(' '));
+    container.append(paragraph);
+  }
+}
+
+function addAiMessage(text, kind = '', markdown = false) {
   const message = document.createElement('div');
-  message.className = `ai-message${kind ? ` ${kind}` : ''}`;
-  message.textContent = text;
+  message.className = `ai-message${kind ? ` ${kind}` : ''}${markdown ? ' ai-response' : ''}`;
+  if (markdown) renderMarkdown(message, text);
+  else message.textContent = text;
   ai('aiLog').append(message);
   ai('aiLog').scrollTop = ai('aiLog').scrollHeight;
   return message;
@@ -71,7 +176,7 @@ ai('aiForm').addEventListener('submit', async event => {
     if (typeof result.reply !== 'string' || !result.reply.trim()) throw new Error('The assistant returned an empty reply.');
     assistant.history.push({ role: 'assistant', content: result.reply });
     pending.remove();
-    addAiMessage(result.reply);
+    addAiMessage(result.reply, '', true);
   } catch (error) {
     assistant.history.pop();
     pending.remove();
