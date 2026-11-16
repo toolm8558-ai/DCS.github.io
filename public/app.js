@@ -489,7 +489,8 @@ function drawChart() {
   $('tip').hidden = true;
   if (!known.length) { const t = el('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle', fill: 'var(--ink2)' }, svg); t.textContent = 'Nothing was recorded in this period'; return; }
 
-  const m = { l: 62, r: 14, t: 10, b: 26 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const small = W < 520, fs = small ? 11 : 12.5;
+  const m = { l: small ? 46 : 62, r: small ? 6 : 14, t: 10, b: 26 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
   const band = data.bucketMinutes > 1;
   const lo = Math.min(...known.map(p => (band ? p.min : p.v))), hi = Math.max(...known.map(p => (band ? p.max : p.v)));
   const ticks = niceTicks(lo, hi, 5);
@@ -499,13 +500,13 @@ function drawChart() {
 
   for (const v of ticks) {
     el('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: 'var(--grid)' }, svg);
-    const t = el('text', { x: m.l - 8, y: y(v) + 4, 'text-anchor': 'end', 'font-size': 12.5, fill: 'var(--ink3)' }, svg);
+    const t = el('text', { x: m.l - 8, y: y(v) + 4, 'text-anchor': 'end', 'font-size': fs, fill: 'var(--ink3)' }, svg);
     t.textContent = num(v);
   }
   const { ticks: xt, step } = timeTicks(data.from, data.to, iw);
   for (const t of xt) {
     el('line', { x1: x(t), x2: x(t), y1: m.t + ih, y2: m.t + ih + 4, stroke: 'var(--axis)' }, svg);
-    const label = el('text', { x: x(t), y: H - 7, 'text-anchor': 'middle', 'font-size': 12.5, fill: 'var(--ink3)' }, svg);
+    const label = el('text', { x: x(t), y: H - 7, 'text-anchor': 'middle', 'font-size': fs, fill: 'var(--ink3)' }, svg);
     label.textContent = step >= DAY ? fmtDate(t).slice(0, 5) : ((t + IST) % DAY === 0 && data.to - data.from > DAY ? fmtDate(t).slice(0, 5) : fmtTime(t));
   }
   el('line', { x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih, stroke: 'var(--axis)' }, svg);

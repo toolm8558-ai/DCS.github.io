@@ -218,15 +218,35 @@ th:first-child,td:first-child{text-align:left;padding-left:0}
 /* ---------- Embed + responsive ---------- */
 body.embed .nav{display:none}
 body.embed main.wrap{padding:12px}
+@media(max-width:380px){.brand b{display:none}.cell .val{font-size:16px}}
+/* Nothing may push the page wider than the screen: grid columns can shrink, wide tables scroll inside their box. */
+body{overflow-x:clip}
+.layout>*{min-width:0}
+#chartBox{overflow:hidden}
+.scroll{max-width:100%;-webkit-overflow-scrolling:touch}
+.cell{overflow:hidden}
+.cell .reading{overflow:hidden}
+.cell .val{overflow:hidden;text-overflow:ellipsis}
 @media(max-width:1020px){
-  .layout{grid-template-columns:1fr;gap:28px}
+  .layout{grid-template-columns:minmax(0,1fr);gap:28px}
 }
 @media(max-width:760px){
   .wrap{padding-left:16px;padding-right:16px}
-  .nav-in{flex-wrap:wrap;height:auto;padding-top:12px;padding-bottom:12px;gap:10px 12px}
-  .nav-right{margin-left:auto}
-  .pill{max-width:46vw}
+  .nav-in{height:60px;gap:10px}
+  .brand img{width:30px;height:30px}
+  .brand b{font-size:16px}
+  .nav-right{flex:1 1 auto;min-width:0;justify-content:flex-end;gap:6px}
+  .pill{flex:0 1 auto;min-width:0;max-width:none;padding:0 10px;font-size:12px}
+  .icon-btn{flex:none;width:34px;height:34px}
   main.wrap{padding-top:20px}
+  .sec-head h2{font-size:18px}
+  .q-head{gap:10px}.q-head .av{width:40px;height:40px;font-size:13px}.q-head h2{font-size:18px}
+  .layout>div>.price,.price-chg{overflow-wrap:anywhere}
+  .chips{gap:6px}.chips button{height:30px;padding:0 11px;font-size:12.5px}
+  .perf{gap:6px 10px}.perf .end b{font-size:13.5px}
+  .perf-when{font-size:11px}
+  .side-head,.figures,.side-foot{padding-left:16px;padding-right:16px}
+  .tabs{gap:16px}.tabs [role=tab]{font-size:13.5px}
   #mobileSearch{margin-top:16px}
   #mobileSearch .search{max-width:none}
   .live{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -240,7 +260,7 @@ body.embed main.wrap{padding:12px}
   .cell .spark{width:100%;height:20px}
   #result{margin-top:28px;padding-top:24px}
   .price b{font-size:28px}
-  #chartBox{height:260px}
+  #chartBox{height:240px;margin-top:14px}
   .custom .field{flex:1 1 140px}.custom .field input{width:100%}.custom .btn{width:100%}
   th,td{padding:10px 10px;font-size:13px}
   #csv{font-size:0;padding:0 10px}#csv:after{content:"CSV";font-size:13px}
