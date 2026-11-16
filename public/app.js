@@ -101,27 +101,42 @@ async function refreshStatus() {
 let liveTimer, statusTimer, liveTags = [];
 const liveCells = new Map();
 
+// Each tag gets a round badge with its first letters, tinted by a colour worked out from its name.
+const initials = tag => tag.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase();
+const hueOf = tag => { let h = 0; for (const ch of tag) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
+function paintAvatar(node, tag) { node.textContent = initials(tag); node.style.setProperty('--h', hueOf(tag)); }
+
+// Shows a change as "+1.25 (0.84%)" in green, red or grey.
+function setChange(node, delta, base, format) {
+  if (delta === null || !Number.isFinite(delta)) { node.textContent = '—'; node.className = 'chg flat'; return 'flat'; }
+  const dir = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+  const pct = base ? ` (${Math.abs(delta / base * 100).toFixed(2)}%)` : '';
+  node.textContent = `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${format(Math.abs(delta))}${pct}`;
+  node.className = `chg ${dir}`;
+  return dir;
+}
+
 function liveCell(item) {
   const cell = document.createElement('button');
   cell.type = 'button';
   cell.className = 'cell';
+  const top = document.createElement('div'); top.className = 'top';
+  const av = document.createElement('span'); av.className = 'av'; av.setAttribute('aria-hidden', 'true'); paintAvatar(av, item.tag);
   const name = document.createElement('div'); name.className = 'name'; name.textContent = item.description || item.tag; name.title = item.tag;
+  top.append(av, name);
   const reading = document.createElement('div'); reading.className = 'reading';
   const val = document.createElement('span'); val.className = 'val';
   const unit = document.createElement('span'); unit.className = 'unit'; unit.textContent = item.unit || '';
   reading.append(val, unit);
+  const foot = document.createElement('div'); foot.className = 'foot';
+  const chg = document.createElement('span'); chg.className = 'chg flat'; chg.title = 'Change since this page started reading';
   const spark = el('svg', { class: 'spark', viewBox: '0 0 100 26', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
   const line = el('polyline', {}, spark);
-  const meter = document.createElement('div'); meter.className = 'meter';
-  const mark = document.createElement('b'); meter.append(mark);
-  const range = document.createElement('div'); range.className = 'range';
-  const lo = document.createElement('span'); lo.textContent = num(item.lo);
-  const hi = document.createElement('span'); hi.textContent = num(item.hi);
-  range.append(lo, hi);
-  cell.append(name, reading, spark, meter, range);
+  foot.append(chg, spark);
+  cell.append(top, reading, foot);
   cell.addEventListener('click', () => { pick(item.tag); $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   $('live').append(cell);
-  return { cell, val, line, mark, seen: [], last: 0 };
+  return { cell, val, line, chg, seen: [], last: 0 };
 }
 
 function drawSpark(c) {
@@ -157,8 +172,7 @@ function drawLive(reply) {
     c.val.textContent = liveNum(item.v);
     if (item.t !== c.last) { c.last = item.t; c.seen.push(item.v); if (c.seen.length > LIVE_KEEP) c.seen.shift(); }
     drawSpark(c);
-    const share = item.hi > item.lo ? (item.v - item.lo) / (item.hi - item.lo) : 0;
-    c.mark.style.left = `${Math.max(0, Math.min(1, share)) * 100}%`;
+    c.cell.dataset.dir = setChange(c.chg, c.seen.length > 1 ? item.v - c.seen[0] : null, c.seen[0], liveNum);
     c.cell.setAttribute('aria-pressed', String(item.tag === state.tag));
     c.cell.setAttribute('aria-label', `${item.description || item.tag}, ${liveNum(item.v)} ${item.unit || ''}. Show trend.`);
     newest = Math.max(newest, item.t);
@@ -199,10 +213,20 @@ function setPreset(name, reload = true) {
   markPreset(name);
   if (reload) load();
 }
-function markPreset(name) { document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', b.dataset.preset === name)); }
+// A period chosen by date (Custom, or a click in the daily table) marks the Custom chip instead.
+function markPreset(name) {
+  document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', b.dataset.preset === name));
+  $('customBtn').classList.toggle('on', !name);
+}
 function syncInputs() { $('from').value = state.from; $('to').value = state.to; }
+function showCustom(open) { $('custom').hidden = !open; $('customBtn').setAttribute('aria-expanded', String(open)); }
 
-document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => setPreset(b.dataset.preset)));
+document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => { showCustom(false); setPreset(b.dataset.preset); }));
+$('customBtn').addEventListener('click', () => { showCustom($('custom').hidden); if (!$('custom').hidden) $('from').focus(); });
+$('askAi').addEventListener('click', () => {
+  if ($('aiPanel').hidden) $('aiToggle').click();
+  if (data && !$('aiInput').value) $('aiInput').value = `Analyse ${data.tag} (${data.description || data.tag}) for the selected period: trend, lows and highs, and anything unusual.`;
+});
 $('show').addEventListener('click', () => {
   state.from = $('from').value; state.to = $('to').value;
   markPreset('');
@@ -287,14 +311,15 @@ async function load() {
   }
 }
 
-function figure(label, value, unit, sub, lead) {
+// One row of the summary card: label (with a note under it) on the left, value on the right.
+function figure(label, value, unit, sub) {
   const box = document.createElement('div');
-  box.className = lead ? 'fig lead' : 'fig';
+  box.className = 'fig';
   const lab = document.createElement('div'); lab.className = 'lab'; lab.textContent = label;
+  if (sub) { const note = document.createElement('span'); note.className = 'sub'; note.textContent = sub; lab.append(note); }
   const val = document.createElement('div'); val.className = 'val'; val.textContent = value;
   if (unit) { const s = document.createElement('small'); s.textContent = ` ${unit}`; val.append(s); }
-  const note = document.createElement('div'); note.className = 'sub'; note.textContent = sub || '';
-  box.append(lab, val, note);
+  box.append(lab, val);
   return box;
 }
 
@@ -303,13 +328,30 @@ const when = (ms, oneDay) => (oneDay ? `at ${fmtTime(ms)}` : `${fmtDate(ms)} ${f
 function render() {
   $('result').hidden = false;
   const s = data.summary, u = data.unit;
+  paintAvatar($('tagAvatar'), data.tag);
   $('tagName').textContent = data.description || data.tag;
-  $('tagCode').textContent = data.tag;
+  $('tagCode').textContent = [data.tag, u].filter(Boolean).join(' · ');
   const oneDay = data.to - data.from <= DAY;
   const span = isoDate(data.from) === isoDate(data.to - 1)
     ? `${fmtDate(data.from)}, ${fmtTime(data.from)} to ${fmtTime(data.to)}`
     : `${fmtDate(data.from)} ${fmtTime(data.from)} to ${fmtDate(data.to)} ${fmtTime(data.to)}`;
-  $('period').textContent = `${span}, India time`;
+  $('period').textContent = span;
+
+  // The headline is the last recorded value; the change is from the first recorded value of the period.
+  const known = data.points.filter(p => p.v !== undefined);
+  const first = known[0], last = known[known.length - 1];
+  $('bigVal').textContent = last ? num(last.v) : 'No data';
+  $('bigUnit').textContent = last ? (u || '') : '';
+  $('result').dataset.dir = setChange($('chg'), known.length > 1 ? last.v - first.v : null, first ? first.v : 0, num);
+
+  // Performance: where the last value sits between the period's low and high.
+  $('perfLow').textContent = s.minutes ? num(s.min) : '-';
+  $('perfHigh').textContent = s.minutes ? num(s.max) : '-';
+  $('perfLowAt').textContent = s.minutes ? when(s.minAt, oneDay) : '';
+  $('perfHighAt').textContent = s.minutes ? when(s.maxAt, oneDay) : '';
+  const place = s.minutes && last && s.max > s.min ? (last.v - s.min) / (s.max - s.min) : .5;
+  $('perfMark').style.left = `${Math.max(0, Math.min(1, place)) * 100}%`;
+  $('perfMark').hidden = !s.minutes;
 
   // Minutes that have not happened yet are not missing, so they do not count against the period.
   const possible = Math.round((Math.min(data.to, Date.now()) - data.from) / MINUTE);
@@ -317,14 +359,15 @@ function render() {
   const figs = [];
   if (s.minutes) {
     figs.push(
-      figure('Average', num(s.avg), u, `Over ${num(s.minutes)} recorded minutes`, true),
+      figure('Average', num(s.avg), u, `${num(s.minutes)} recorded minutes`),
       s.total === undefined
-        ? figure('Total', 'n/a', '', 'Only flow and power tags have a total', true)
-        : figure('Total', num(s.total), s.totalUnit, `Over ${num(s.minutes)} recorded minutes`, true),
+        ? figure('Total', 'n/a', '', 'Only flow and power tags')
+        : figure('Total', num(s.total), s.totalUnit, 'Average × recorded hours'),
       figure('Minimum', num(s.min), u, when(s.minAt, oneDay)),
-      figure('Maximum', num(s.max), u, when(s.maxAt, oneDay)));
+      figure('Maximum', num(s.max), u, when(s.maxAt, oneDay)),
+      figure('Range', num(s.max - s.min), u, 'Maximum − minimum'));
   } else {
-    figs.push(figure('Average', 'n/a', '', 'Nothing recorded in this period', true), figure('Total', 'n/a', '', 'Nothing recorded in this period', true), figure('Minimum', 'n/a'), figure('Maximum', 'n/a'));
+    figs.push(figure('Average', 'n/a', '', 'Nothing recorded'), figure('Total', 'n/a'), figure('Minimum', 'n/a'), figure('Maximum', 'n/a'));
   }
   figs.push(figure('Recorded', `${share}%`, '', `${num(s.minutes)} of ${num(possible)} minutes`));
   $('figures').replaceChildren(...figs);
@@ -470,15 +513,24 @@ function drawChart() {
   }
   const value = p => (band ? p.avg : p.v);
   const at = (p, v) => `${x(p.t).toFixed(1)},${y(v).toFixed(1)}`;
-  const base = y(y0 <= 0 && y1 >= 0 ? 0 : y0).toFixed(1);   // the wash reaches zero, or the axis if zero is off the chart
+  const base = (m.t + ih).toFixed(1);   // the soft fill fades down to the bottom of the chart
+
+  // The fill under the line fades from the line's colour to nothing.
+  const fade = el('linearGradient', { id: 'fade', x1: 0, y1: 0, x2: 0, y2: 1 }, el('defs', {}, svg));
+  el('stop', { offset: '0%', style: 'stop-color:var(--series);stop-opacity:.22' }, fade);
+  el('stop', { offset: '100%', style: 'stop-color:var(--series);stop-opacity:0' }, fade);
+
+  // A dashed line at the period's first value, so rises and falls read at a glance.
+  const opening = value(known[0]);
+  el('line', { x1: m.l, x2: W - m.r, y1: y(opening), y2: y(opening), stroke: 'var(--ink3)', 'stroke-dasharray': '2 4', opacity: .7 }, svg);
   for (const r of runs) {
     if (band) el('polygon', { points: [...r.map(p => at(p, p.max)), ...r.map(p => at(p, p.min)).reverse()].join(' '), fill: 'var(--band)' }, svg);
-    else if (r.length > 1) el('polygon', { points: [`${x(r[0].t).toFixed(1)},${base}`, ...r.map(p => at(p, p.v)), `${x(r[r.length - 1].t).toFixed(1)},${base}`].join(' '), fill: 'var(--wash)' }, svg);
+    else if (r.length > 1) el('polygon', { points: [`${x(r[0].t).toFixed(1)},${base}`, ...r.map(p => at(p, p.v)), `${x(r[r.length - 1].t).toFixed(1)},${base}`].join(' '), fill: 'url(#fade)' }, svg);
     if (r.length === 1) el('circle', { cx: x(r[0].t), cy: y(value(r[0])), r: 4, fill: 'var(--series)' }, svg);
     else el('polyline', { points: r.map(p => at(p, value(p))).join(' '), fill: 'none', stroke: 'var(--series)', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
   }
 
-  const hair = el('line', { y1: m.t, y2: m.t + ih, stroke: 'var(--ink3)', visibility: 'hidden' }, svg);
+  const hair = el('line', { y1: m.t, y2: m.t + ih, stroke: 'var(--ink3)', 'stroke-dasharray': '3 3', visibility: 'hidden' }, svg);
   const dot = el('circle', { r: 4, fill: 'var(--series)', stroke: 'var(--surface)', 'stroke-width': 2, visibility: 'hidden' }, svg);
   const tip = $('tip');
   function show(i) {
