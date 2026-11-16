@@ -61,13 +61,26 @@ $('keyForm').addEventListener('submit', e => {
 });
 $('signOut').addEventListener('click', () => showKey());
 
-function showTheme() { $('theme').textContent = document.documentElement.dataset.theme === 'dark' ? 'Light view' : 'Dark view'; }
+function showTheme() { $('themeText').textContent =document.documentElement.dataset.theme === 'dark' ? 'Light view' : 'Dark view'; }
 $('theme').addEventListener('click', () => {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
   localStorage.setItem('theme', next);
   showTheme();
 });
+
+// Sidebar: "Ask AI" opens the assistant, and the link for the section in view is marked.
+$('navAi').addEventListener('click', () => { if ($('aiPanel').hidden) $('aiToggle').click(); });
+const navLinks = [...document.querySelectorAll('#nav a')];
+const markNav = id => navLinks.forEach(a => a.classList.toggle('on', a.hash === `#${id}`));
+navLinks.forEach(a => a.addEventListener('click', () => markNav(a.hash.slice(1))));
+if ('IntersectionObserver' in window) {
+  const seen = new IntersectionObserver(entries => {
+    const top = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+    if (top) markNav(top.target.id);
+  }, { rootMargin: '-90px 0px -55% 0px' });
+  navLinks.forEach(a => { const target = document.querySelector(a.hash); if (target) seen.observe(target); });
+}
 
 async function start() {
   if (!key) return showKey();
