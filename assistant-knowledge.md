@@ -34,6 +34,12 @@ from the plant's own data, the plant's notes, or a standard formula. Update it w
 | PT_106_1.PV | Turbine exhaust steam pressure | kgf/cm2 g |
 | PT_404.PV | 3 ata steam to process line | kgf/cm2 |
 | STEAM_RATE.PV | Steam rate = FT_02A.PV / TG_LOAD.PV, saved every second and every minute (not saved below 1 MW) | TPH/MW |
+| H_MS.PV | Main steam enthalpy from PT_02.PV and TT_07A.PV by IAPWS-IF97, every second and minute (not saved without 15 C of superheat) | kJ/kg |
+| SR_CORR.PV | Corrected steam rate, STEAM_RATE.PV brought to 3440 kJ/kg and 19.5 MW with the plant fit (only at 10 MW or more) | TPH/MW |
+
+STEAM_RATE.PV, H_MS.PV and SR_CORR.PV are worked out by the SteamRate program from the other tags, not
+measured. They can be read with get_live_values, get_trend and compare_periods like any other tag; a rising
+SR_CORR.PV trend is the clearest sign of the turbine itself getting worse.
 
 PT_104_2.PV (2nd extraction) and TE105.PV (3rd extraction) belong to different points; do not pair them.
 No tag measures bagasse in tonnes (only feeder VFD speeds), and no tag for economiser inlet feed water

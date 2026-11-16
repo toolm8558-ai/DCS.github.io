@@ -24,6 +24,7 @@ const STATIC = {
   '/assistant.js': ['assistant.js', 'text/javascript; charset=utf-8'],
   '/enthalpy.js': ['enthalpy.js', 'text/javascript; charset=utf-8'],
   '/if97.js': ['if97.js', 'text/javascript; charset=utf-8'],
+  '/tools.js': ['tools.js', 'text/javascript; charset=utf-8'],
   '/logo.png': ['logo.png', 'image/png'],
   '/favicon.png': ['favicon.png', 'image/png']
 };
