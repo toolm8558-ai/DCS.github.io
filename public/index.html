@@ -51,6 +51,17 @@ button{cursor:pointer}
 .range{display:flex;justify-content:space-between;font-size:12px;color:var(--strip-ink2);margin-top:5px;font-variant-numeric:tabular-nums}
 .live.stale .cell .val,.live.stale .spark{opacity:.55}
 .liveNote{padding:9px 0 12px;font-size:13.5px;color:var(--warn)}
+.steamLive{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 0 16px}
+.steamCard{min-width:0;padding:12px 16px;background:#ffffff0a;border:1px solid var(--strip-line);border-radius:8px}
+.steamLabel{font-size:13px;color:var(--strip-ink2)}
+.steamValue{display:flex;align-items:baseline;gap:7px;margin:2px 0;font-size:29px;font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums}
+.steamValue small{font-size:13px;font-weight:400;color:var(--strip-ink2)}
+.steamNote{min-height:19px;font-size:12px;color:var(--strip-ink2);overflow-wrap:anywhere}
+.steamInputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:5px}
+.steamInputs>div{min-width:0}
+.steamInputs span,.steamInputs small{display:block;color:var(--strip-ink2);font-size:12px}
+.steamInputs strong{display:block;margin:2px 0;font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+.steamInputs small{font-size:11px}
 
 /* Everything under the filters answers one question: what happened in this period. */
 main.wrap{padding-top:24px;padding-bottom:48px}
@@ -122,7 +133,7 @@ body.embed .bar,body.embed .panel{display:none}
 body.embed main{padding-top:12px}
 @media(max-width:1180px){.cell{padding:12px 14px 13px}.cell .val{font-size:25px}.filters{grid-template-columns:repeat(2,minmax(0,1fr)) auto}.search,.presetField{grid-column:span 3}}
 @media(max-width:860px){.wrap{padding-left:18px;padding-right:18px}.live{grid-template-columns:repeat(2,minmax(0,1fr))}.cell .spark,.range{display:none}.cell .reading{margin-bottom:9px}.brand p{display:none}.figures{grid-template-columns:repeat(2,minmax(0,1fr))}.fig{border-bottom:1px solid var(--line)}.fig:nth-child(2n){border-right:0}.fig:last-child{grid-column:span 2;border-bottom:0}.fig.lead .val{font-size:34px}.presets{overflow-x:auto}.presets button{flex:1 0 auto}#chartBox{height:320px}}
-@media(max-width:560px){.wrap{padding-left:12px;padding-right:12px}.bar{flex-wrap:wrap;gap:8px 10px}.pill{order:3;width:100%}.brand img{width:36px;height:36px}.ghost{height:34px;padding:0 10px}.cell{padding:10px 11px 11px}.cell .val{font-size:23px}.cell .name{font-size:13px}.filters{grid-template-columns:minmax(0,1fr)}.search,.presetField{grid-column:auto}#show{width:100%}.fig{padding:12px 13px}.fig .val{font-size:21px}.fig.lead .val{font-size:27px;letter-spacing:-.5px}.title h2{font-size:20px}.title h2 small{display:block;margin-left:0}.chartWrap{padding:12px 10px 10px}#chartBox{height:270px}th,td{padding:7px 10px;font-size:13px}#csv{font-size:0;padding:0 10px}#csv:after{content:"CSV";font-size:13px}}
+@media(max-width:560px){.wrap{padding-left:12px;padding-right:12px}.bar{flex-wrap:wrap;gap:8px 10px}.pill{order:3;width:100%}.brand img{width:36px;height:36px}.ghost{height:34px;padding:0 10px}.cell{padding:10px 11px 11px}.cell .val{font-size:23px}.cell .name{font-size:13px}.steamLive{grid-template-columns:minmax(0,1fr)}.steamCard{padding:10px 12px}.steamInputs{gap:8px}.steamInputs span{font-size:11px}.filters{grid-template-columns:minmax(0,1fr)}.search,.presetField{grid-column:auto}#show{width:100%}.fig{padding:12px 13px}.fig .val{font-size:21px}.fig.lead .val{font-size:27px;letter-spacing:-.5px}.title h2{font-size:20px}.title h2 small{display:block;margin-left:0}.chartWrap{padding:12px 10px 10px}#chartBox{height:270px}th,td{padding:7px 10px;font-size:13px}#csv{font-size:0;padding:0 10px}#csv:after{content:"CSV";font-size:13px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none !important;transition:none !important;scroll-behavior:auto !important}}
 .ai-assistant{position:fixed;right:22px;bottom:22px;z-index:20;font-size:14px}
 .ai-toggle{display:flex;align-items:center;gap:9px;height:48px;padding:0 17px;border:0;border-radius:999px;background:var(--action);color:#fff;box-shadow:0 8px 24px #10172638}
@@ -178,6 +189,20 @@ body.embed main{padding-top:12px}
     <div class="wrap">
       <div class="live" id="live"></div>
       <p class="liveNote" id="liveNote" hidden></p>
+      <div class="steamLive" aria-label="Live Steam Rate">
+        <article class="steamCard">
+          <div class="steamLabel">Live Steam Rate</div>
+          <div class="steamValue"><span id="steamRate">--</span><small>TPH/MW</small></div>
+          <div class="steamNote" id="steamFormula">Steam flow (TPH) ÷ TG Load (MW)</div>
+        </article>
+        <article class="steamCard">
+          <div class="steamLabel">Live calculation inputs</div>
+          <div class="steamInputs">
+            <div><span>Main Steam flow-A · FT_02A.PV</span><strong id="steamFlow">-- TPH</strong><small id="steamFlowAt">No reading</small></div>
+            <div><span>TG Load · TG_LOAD.PV</span><strong id="tgLoad">-- MW</strong><small id="tgLoadAt">No reading</small></div>
+          </div>
+        </article>
+      </div>
     </div>
   </section>
   <main class="wrap">

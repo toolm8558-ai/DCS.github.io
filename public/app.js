@@ -130,6 +130,32 @@ function drawSpark(c) {
   c.line.setAttribute('points', c.seen.length > 1 ? points.join(' ') : '');
 }
 
+function drawSteamRate(tags) {
+  const flow = tags.find(item => item.tag === 'FT_02A.PV');
+  const load = tags.find(item => item.tag === 'TG_LOAD.PV');
+  const valueOf = item => item && item.v !== null && item.v !== undefined && Number.isFinite(Number(item.v)) ? Number(item.v) : null;
+  const flowValue = valueOf(flow);
+  const loadValue = valueOf(load);
+  const showReading = (id, value, unit) => { $(id).textContent = value === null ? `-- ${unit}` : `${liveNum(value)} ${unit}`; };
+  const showTime = (id, item) => { $(id).textContent = item && Number.isFinite(item.t) ? `Read ${fmtSec(item.t)}` : 'No reading'; };
+
+  showReading('steamFlow', flowValue, 'TPH');
+  showReading('tgLoad', loadValue, 'MW');
+  showTime('steamFlowAt', flow);
+  showTime('tgLoadAt', load);
+
+  if (flowValue === null || loadValue === null) {
+    $('steamRate').textContent = '--';
+    $('steamFormula').textContent = 'Waiting for valid Steam flow and TG Load readings.';
+  } else if (loadValue === 0) {
+    $('steamRate').textContent = '--';
+    $('steamFormula').textContent = 'TG Load is 0 MW; Steam Rate cannot be calculated.';
+  } else {
+    $('steamRate').textContent = liveNum(flowValue / loadValue);
+    $('steamFormula').textContent = `${liveNum(flowValue)} TPH ÷ ${liveNum(loadValue)} MW`;
+  }
+}
+
 function drawLive(reply) {
   liveTags = reply.tags.map(t => t.tag);
   let newest = 0;
@@ -145,6 +171,7 @@ function drawLive(reply) {
     c.cell.setAttribute('aria-label', `${item.description || item.tag}, ${liveNum(item.v)} ${item.unit || ''}. Show trend.`);
     newest = Math.max(newest, item.t);
   }
+  drawSteamRate(reply.tags);
   const stale = !newest || reply.now - newest > LIVE_STALE_MS;
   $('live').classList.toggle('stale', stale);
   setPill(stale ? 'stale' : 'ok', newest ? (stale ? `Live reading stopped at ${fmtSec(newest)}` : `Live, read at ${fmtSec(newest)}`) : 'No live readings yet');
