@@ -214,7 +214,14 @@ th:first-child,td:first-child{text-align:left;padding-left:0}
 .ai-compose button{height:42px;padding:0 16px;border:0;border-radius:10px;background:var(--brand);color:#fff;font-weight:600}
 .ai-compose button:hover{background:var(--brand-hover)}
 .ai-compose button:disabled,.ai-compose textarea:disabled{opacity:.6;cursor:wait}
-
+.ai-voice{display:flex;align-items:center;gap:4px}
+.ai-compose .ai-mic{display:grid;place-items:center;width:42px;padding:0;background:var(--soft);color:var(--ink2);border:1px solid var(--line)}
+.ai-compose .ai-mic:hover{background:var(--hover);color:var(--ink)}
+.ai-mic svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.ai-compose .ai-mic[aria-pressed=true]{background:var(--down);border-color:var(--down);color:#fff;animation:listen 1.2s ease-in-out infinite}
+@keyframes listen{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--down) 45%,transparent)}50%{box-shadow:0 0 0 7px transparent}}
+.ai-compose .ai-lang{width:34px;height:42px;padding:0;background:none;border:1px solid var(--line);color:var(--ink2);font-size:12px;font-weight:700}
+.ai-compose .ai-lang:hover{background:var(--hover)}
 /* ---------- Enthalpy panel ---------- */
 .sec-title{display:flex;align-items:center;gap:12px}
 .h-open{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--brand);border-radius:999px;background:var(--brand-soft);color:var(--brand);font-size:13px;font-weight:600}
@@ -418,6 +425,10 @@ body{overflow-x:clip}
       </div>
       <form id="aiForm" class="ai-compose">
         <textarea id="aiInput" rows="1" maxlength="2000" placeholder="Ask a question…" aria-label="Your message" required></textarea>
+        <div class="ai-voice" id="aiVoice" hidden>
+          <button type="button" class="ai-lang" id="aiLang" title="Language you will speak in">EN</button>
+          <button type="button" class="ai-mic" id="aiMic" aria-label="Speak your question" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+        </div>
         <button id="aiSend" type="submit">Send</button>
       </form>
     </div>

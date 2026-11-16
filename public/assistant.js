@@ -140,6 +140,74 @@ document.addEventListener('keydown', event => {
   }
 });
 
+// Voice input. The browser turns speech into text (Chrome, Edge and Android Chrome support this;
+// they send the audio to their own speech service). The words appear in the box as you speak and the
+// question is sent when you stop. EN understands Indian English and Hinglish, हि understands Hindi.
+(() => {
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition) return;   // browser without speech input: the mic stays hidden
+  ai('aiVoice').hidden = false;
+  const LANGS = [{ code: 'en-IN', label: 'EN', name: 'English' }, { code: 'hi-IN', label: 'हि', name: 'Hindi' }];
+  let lang = Number(localStorage.getItem('voiceLang')) || 0, rec = null, finalText = '', typedBefore = '';
+
+  function showLang() {
+    ai('aiLang').textContent = LANGS[lang].label;
+    ai('aiLang').title = `Speaking in ${LANGS[lang].name}. Click to change.`;
+  }
+  showLang();
+  ai('aiLang').addEventListener('click', () => {
+    lang = (lang + 1) % LANGS.length;
+    try { localStorage.setItem('voiceLang', String(lang)); } catch (e) { /* not saved, still works */ }
+    showLang();
+  });
+
+  function stop() { if (rec) rec.stop(); }
+  function setListening(on) {
+    ai('aiMic').setAttribute('aria-pressed', String(on));
+    ai('aiMic').setAttribute('aria-label', on ? 'Stop listening' : 'Speak your question');
+    ai('aiInput').placeholder = on ? `Listening (${LANGS[lang].name})…` : 'Ask a question…';
+  }
+
+  ai('aiMic').addEventListener('click', () => {
+    if (rec) return stop();
+    if (assistant.busy) return;
+    rec = new Recognition();
+    rec.lang = LANGS[lang].code;
+    rec.interimResults = true;
+    rec.continuous = false;
+    finalText = '';
+    typedBefore = ai('aiInput').value.trim();
+    rec.onresult = event => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
+        else interim += event.results[i][0].transcript;
+      }
+      ai('aiInput').value = [typedBefore, (finalText + interim).trim()].filter(Boolean).join(' ');
+    };
+    rec.onerror = event => {
+      const messages = {
+        'not-allowed': 'Microphone permission was refused. Allow the microphone for this site in the browser, then try again.',
+        'service-not-allowed': 'Speech input is not allowed in this browser.',
+        'no-speech': 'Nothing was heard. Tap the mic and speak again.',
+        'audio-capture': 'No microphone was found.',
+        network: 'Speech input needs an internet connection.'
+      };
+      if (event.error !== 'aborted') addAiMessage(messages[event.error] || `Speech input stopped: ${event.error}`, 'error');
+    };
+    rec.onend = () => {
+      rec = null;
+      setListening(false);
+      if (finalText.trim() && !assistant.busy) ai('aiForm').requestSubmit();
+    };
+    setListening(true);
+    rec.start();
+  });
+
+  // Closing the panel stops listening.
+  ai('aiClose').addEventListener('click', stop);
+})();
+
 ai('aiForm').addEventListener('submit', async event => {
   event.preventDefault();
   const input = ai('aiInput');
