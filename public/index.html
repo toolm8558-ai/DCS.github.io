@@ -69,17 +69,12 @@ main{width:100%;max-width:1380px;padding:24px 28px 96px}
 
 /* ---------- KPI row: steam rate + live tag cells ---------- */
 .live{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
-.steam{grid-column:span 2;display:flex;flex-direction:column;padding:16px 20px;background:var(--strip);border-color:var(--strip);color:var(--strip-ink);position:relative;overflow:hidden}
+.steam{display:flex;flex-direction:column;margin-top:12px;max-width:520px;padding:16px 20px;background:var(--strip);border-color:var(--strip);color:var(--strip-ink);position:relative;overflow:hidden}
 .steam:before{content:"";position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,#f02d0f 0,#ff5a00 62%,#ffa800 100%)}
 .steam .label{font-size:13.5px;color:var(--strip-ink2)}
 .steamValue{display:flex;align-items:baseline;gap:8px;margin:2px 0 4px;font-size:44px;font-weight:600;line-height:1.1;letter-spacing:-1px;font-variant-numeric:tabular-nums}
 .steamValue small{font-size:14px;font-weight:400;letter-spacing:0;color:var(--strip-ink2)}
 .steamNote{font-size:12.5px;color:var(--strip-ink2);min-height:19px;overflow-wrap:anywhere}
-.steamInputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:auto;padding-top:12px;border-top:1px solid var(--strip-line)}
-.steamInputs>div{min-width:0}
-.steamInputs span,.steamInputs small{display:block;font-size:12px;color:var(--strip-ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.steamInputs strong{display:block;font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
-.steamInputs small{font-size:11px}
 
 .cell{display:flex;flex-direction:column;min-width:0;padding:14px 16px 13px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);color:var(--ink);text-align:left;position:relative;transition:border-color .15s,transform .15s}
 .cell:hover{border-color:var(--ink3);transform:translateY(-1px)}
@@ -205,13 +200,16 @@ body.embed main{padding:12px}
   .side>div:not(.brand):not(.side-foot),.side-foot p,.brand p{display:none}
   .side-foot{margin:0 0 0 auto;flex-direction:row;padding:0;border:0}
   .side-foot button{width:auto;min-height:36px;font-size:13px}
-  .top{padding:12px 18px;flex-wrap:wrap;gap:10px}
-  .search{order:3;flex:1 1 100%;max-width:none;margin:0}
-  .pill{margin-left:auto}
+  .top{padding:12px 18px;gap:12px}
+  .search{flex:1 1 220px;max-width:none}
+  .pill{max-width:220px}
   main{padding:18px 18px 96px}
 }
 @media(max-width:640px){
-  .steam{grid-column:1/-1}
+  .top{flex-wrap:wrap}
+  .search{order:3;flex:1 1 100%}
+  .pill{margin-left:auto}
+  .steam{max-width:none}
   .live{grid-template-columns:repeat(2,minmax(0,1fr))}
   .cell{padding:11px 12px}.cell .val{font-size:22px}.cell .spark,.range{display:none}
   .steamValue{font-size:34px}
@@ -274,18 +272,13 @@ body.embed main{padding:12px}
     <main>
       <section class="sec" id="livePanel" data-od-id="kpis" aria-labelledby="liveTitle">
         <div class="sec-head"><h2 id="liveTitle">Live values</h2><span>Click a value to see its trend</span></div>
-        <div class="live" id="live">
-          <article class="card steam" aria-label="Live steam rate">
-            <div class="label">Live steam rate</div>
-            <div class="steamValue"><span id="steamRate">--</span><small>TPH/MW</small></div>
-            <div class="steamNote" id="steamFormula">Steam flow (TPH) ÷ TG load (MW)</div>
-            <div class="steamInputs">
-              <div><span>Main steam flow-A · FT_02A</span><strong id="steamFlow">-- TPH</strong><small id="steamFlowAt">No reading</small></div>
-              <div><span>TG load · TG_LOAD</span><strong id="tgLoad">-- MW</strong><small id="tgLoadAt">No reading</small></div>
-            </div>
-          </article>
-        </div>
+        <div class="live" id="live"></div>
         <p class="liveNote" id="liveNote" hidden></p>
+        <article class="card steam" aria-label="Live steam rate">
+          <div class="label">Live steam rate</div>
+          <div class="steamValue"><span id="steamRate">--</span><small>TPH/MW</small></div>
+          <div class="steamNote" id="steamFormula">Steam flow (TPH) ÷ TG load (MW)</div>
+        </article>
       </section>
 
       <section class="sec" id="periodPanel" data-od-id="period" aria-label="Period">

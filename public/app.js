@@ -149,14 +149,6 @@ function drawSteamRate(tags) {
   const valueOf = item => item && item.v !== null && item.v !== undefined && Number.isFinite(Number(item.v)) ? Number(item.v) : null;
   const flowValue = valueOf(flow);
   const loadValue = valueOf(load);
-  const showReading = (id, value, unit) => { $(id).textContent = value === null ? `-- ${unit}` : `${liveNum(value)} ${unit}`; };
-  const showTime = (id, item) => { $(id).textContent = item && Number.isFinite(item.t) ? `Read ${fmtSec(item.t)}` : 'No reading'; };
-
-  showReading('steamFlow', flowValue, 'TPH');
-  showReading('tgLoad', loadValue, 'MW');
-  showTime('steamFlowAt', flow);
-  showTime('tgLoadAt', load);
-
   if (flowValue === null || loadValue === null) {
     $('steamRate').textContent = '--';
     $('steamFormula').textContent = 'Waiting for valid Steam flow and TG Load readings.';
