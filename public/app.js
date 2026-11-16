@@ -100,6 +100,7 @@ async function refreshStatus() {
 // line in each cell is drawn from the readings this page has seen since it opened.
 let liveTimer, statusTimer, liveTags = [];
 const liveCells = new Map();
+const liveNow = new Map();   // newest reading of each live tag, also read by enthalpy.js
 
 // Each tag gets a round badge with its first letters, tinted by a colour worked out from its name.
 const initials = tag => tag.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase();
@@ -172,6 +173,7 @@ function drawLive(reply) {
   liveTags = reply.tags.map(t => t.tag);
   let newest = 0;
   for (const item of reply.tags) {
+    liveNow.set(item.tag, item);
     if (!liveCells.has(item.tag)) liveCells.set(item.tag, liveCell(item));
     const c = liveCells.get(item.tag);
     c.val.textContent = liveNum(item.v);
@@ -183,6 +185,7 @@ function drawLive(reply) {
     newest = Math.max(newest, item.t);
   }
   drawSteamRate(reply.tags);
+  if (window.onLiveReading) window.onLiveReading();
   const stale = !newest || reply.now - newest > LIVE_STALE_MS;
   $('live').classList.toggle('stale', stale);
   setPill(stale ? 'stale' : 'ok', newest ? (stale ? `Live reading stopped at ${fmtSec(newest)}` : `Live, read at ${fmtSec(newest)}`) : 'No live readings yet');

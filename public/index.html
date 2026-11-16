@@ -215,6 +215,48 @@ th:first-child,td:first-child{text-align:left;padding-left:0}
 .ai-compose button:hover{background:var(--brand-hover)}
 .ai-compose button:disabled,.ai-compose textarea:disabled{opacity:.6;cursor:wait}
 
+/* ---------- Enthalpy panel ---------- */
+.sec-title{display:flex;align-items:center;gap:12px}
+.h-open{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--brand);border-radius:999px;background:var(--brand-soft);color:var(--brand);font-size:13px;font-weight:600}
+.h-open:hover{background:var(--brand);color:#fff}
+.h-open svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.h-dialog{width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:var(--shadow-lg);overflow:hidden}
+.h-dialog[open]{display:flex;flex-direction:column}
+.h-dialog::backdrop{background:#0000006b}
+.h-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.h-head h3{font-size:18px;font-weight:600}
+.h-head p{font-size:12.5px;color:var(--ink3)}
+.h-head .icon-btn{font-size:20px;line-height:1}
+.h-scroll{overflow-y:auto;padding:20px}
+.h-hero{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px;padding:16px 18px;border-radius:12px;background:var(--brand-soft)}
+.h-hero b{font-size:34px;font-weight:700;letter-spacing:-.6px;color:var(--brand);font-variant-numeric:tabular-nums}
+.h-hero small{font-size:15px;color:var(--ink2)}
+.h-hero span{font-size:13.5px;color:var(--ink2)}
+.h-hero-sm b{font-size:28px}
+.h-hero-sm span{flex-basis:100%}
+.h-intro{margin:14px 0 6px;font-size:13.5px;color:var(--ink2)}
+.h-sub{margin-top:26px;padding-top:20px;border-top:1px solid var(--line);font-size:17px;font-weight:600}
+.h-step{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--grid)}
+.h-step:last-child{border-bottom:0}
+.h-num{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--soft);color:var(--ink2);font-size:13px;font-weight:700}
+.h-body{flex:1;min-width:0}
+.h-body h4{font-size:14.5px;font-weight:600;margin:3px 0 8px}
+.h-row{display:grid;grid-template-columns:minmax(120px,.9fr) minmax(0,1.6fr) auto;align-items:baseline;gap:4px 14px;padding:5px 0;font-size:13.5px}
+.h-row span{color:var(--ink2)}
+.h-row code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--ink3);overflow-wrap:anywhere}
+.h-row b{font-weight:600;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.h-row em{font-style:normal;color:var(--brand)}
+.h-formula{margin:4px 0 10px;padding:10px 14px;border-left:3px solid var(--brand);border-radius:6px;background:var(--soft);font:600 14.5px/1.5 ui-monospace,Consolas,monospace;overflow-x:auto}
+.h-note{margin-top:6px;font-size:12.5px;color:var(--ink3)}
+.h-warn{margin:8px 0;padding:10px 14px;border-radius:10px;background:#fff6e5;color:#8a5a00;font-size:13px}
+[data-theme=dark] .h-warn{background:#3a2c10;color:#ffcf70}
+.h-body details{margin-top:8px;font-size:13px}
+.h-body summary{cursor:pointer;color:var(--brand);font-weight:500}
+.h-table{max-height:260px;overflow:auto;margin-top:8px;border:1px solid var(--line);border-radius:8px}
+.h-table table{font-size:12px}
+.h-table th,.h-table td{padding:6px 10px}
+.h-table th:first-child,.h-table td:first-child{padding-left:10px}
+
 /* ---------- Embed + responsive ---------- */
 body.embed .nav{display:none}
 body.embed main.wrap{padding:12px}
@@ -264,6 +306,12 @@ body{overflow-x:clip}
   .custom .field{flex:1 1 140px}.custom .field input{width:100%}.custom .btn{width:100%}
   th,td{padding:10px 10px;font-size:13px}
   #csv{font-size:0;padding:0 10px}#csv:after{content:"CSV";font-size:13px}
+  .h-scroll{padding:14px}
+  .h-head{padding:14px}
+  .h-row{grid-template-columns:minmax(0,1fr) auto}
+  .h-row code{grid-column:1/-1;grid-row:2}
+  .h-step{gap:10px}
+  .h-hero b{font-size:28px}
   .ai-assistant{right:16px;bottom:16px}.ai-toggle span{display:none}.ai-toggle{width:50px;padding:0;justify-content:center}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none !important;transition:none !important;scroll-behavior:auto !important}}
@@ -297,7 +345,7 @@ body{overflow-x:clip}
 
   <main class="wrap">
     <section aria-labelledby="liveTitle">
-      <div class="sec-head"><h2 id="liveTitle">Live values</h2><span id="fresh">Checking saved history…</span></div>
+      <div class="sec-head"><div class="sec-title"><h2 id="liveTitle">Live values</h2><button type="button" class="h-open" id="hOpen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11Z"/><path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5"/></svg>Enthalpy</button></div><span id="fresh">Checking saved history…</span></div>
       <div class="live" id="live">
         <article class="steam" id="steamCard" aria-label="Live steam rate">
           <div class="top"><span class="av" aria-hidden="true">SR</span><div class="name">Live steam rate</div></div>
@@ -379,6 +427,21 @@ body{overflow-x:clip}
     </button>
   </section>
 </div>
+<dialog id="hDialog" class="h-dialog" aria-labelledby="hTitle">
+  <header class="h-head">
+    <div><h3 id="hTitle">Main steam enthalpy</h3><p id="hTime">Waiting for live values</p></div>
+    <button type="button" class="icon-btn" id="hClose" aria-label="Close">×</button>
+  </header>
+  <div class="h-scroll">
+    <div class="h-hero" id="hHero"></div>
+    <p class="h-intro">Enthalpy (h) is the heat energy in each kilogram of steam. It is worked out from the main steam pressure and temperature with IAPWS-IF97, the international standard for steam properties. Every step below uses the live values and updates every 2 seconds.</p>
+    <div id="hMain"></div>
+    <h3 class="h-sub">Turbine HP section efficiency</h3>
+    <p class="h-intro">How much of the ideal enthalpy drop the turbine actually uses between its inlet and the 1st extraction.</p>
+    <div id="hEff"></div>
+  </div>
+</dialog>
 <script src="app.js"></script>
+<script src="enthalpy.js"></script>
 <script src="assistant.js"></script>
 </body></html>
