@@ -213,6 +213,13 @@ function setPreset(name, reload = true) {
   markPreset(name);
   if (reload) load();
 }
+// On a phone the search box sits under the live values; on wider screens it is in the top bar.
+const searchBox = document.querySelector('.search'), searchHome = searchBox.parentNode, searchAfter = searchBox.nextElementSibling;
+const phone = matchMedia('(max-width: 760px)');
+function placeSearch() { if (phone.matches) $('mobileSearch').append(searchBox); else searchHome.insertBefore(searchBox, searchAfter); }
+phone.addEventListener('change', placeSearch);
+placeSearch();
+
 // A period chosen by date (Custom, or a click in the daily table) marks the Custom chip instead.
 function markPreset(name) {
   document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', b.dataset.preset === name));
