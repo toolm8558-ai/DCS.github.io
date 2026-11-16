@@ -135,7 +135,9 @@ function liveCell(item) {
   foot.append(chg, spark);
   cell.append(top, reading, foot);
   cell.addEventListener('click', () => { pick(item.tag); $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
-  $('live').append(cell);
+  // The saved steam rate leads the list; the card worked out in the browser is then no longer needed.
+  if (item.tag === STEAM_TAG) { cell.classList.add('featured'); $('live').prepend(cell); $('steamCard').remove(); }
+  else $('live').append(cell);
   return { cell, val, line, chg, seen: [], last: 0 };
 }
 
@@ -145,7 +147,10 @@ function drawSpark(c) {
   c.line.setAttribute('points', c.seen.length > 1 ? points.join(' ') : '');
 }
 
+// SteamRate.exe saves FT_02A.PV / TG_LOAD.PV as this tag. Until it appears, the page works it out itself.
+const STEAM_TAG = 'STEAM_RATE.PV';
 function drawSteamRate(tags) {
+  if (!$('steamCard')) return;
   const flow = tags.find(item => item.tag === 'FT_02A.PV');
   const load = tags.find(item => item.tag === 'TG_LOAD.PV');
   const valueOf = item => item && item.v !== null && item.v !== undefined && Number.isFinite(Number(item.v)) ? Number(item.v) : null;
