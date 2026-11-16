@@ -129,18 +129,75 @@ function liveCell(item) {
   const val = document.createElement('span'); val.className = 'val';
   const unit = document.createElement('span'); unit.className = 'unit'; unit.textContent = item.unit || '';
   reading.append(val, unit);
+  const lim = document.createElement('div'); lim.className = 'lim'; lim.hidden = true;
   const foot = document.createElement('div'); foot.className = 'foot';
   const chg = document.createElement('span'); chg.className = 'chg flat'; chg.title = 'Change since this page started reading';
   const spark = el('svg', { class: 'spark', viewBox: '0 0 100 26', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
   const line = el('polyline', {}, spark);
   foot.append(chg, spark);
-  cell.append(top, reading, foot);
+  cell.append(top, reading, lim, foot);
   cell.addEventListener('click', () => { pick(item.tag); $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   // The saved steam rate leads the list; the card worked out in the browser is then no longer needed.
   if (item.tag === STEAM_TAG) { cell.classList.add('featured'); $('live').prepend(cell); $('steamCard').remove(); }
   else $('live').append(cell);
-  return { cell, val, line, chg, seen: [], last: 0 };
+  return { cell, val, line, chg, lim, seen: [], last: 0 };
 }
+
+// Limits each viewer sets on live values. They are kept in this browser only, so everyone can have their own.
+// A value past its limit turns the card red; within the limit it is green.
+const LIMIT_KEY = 'liveLimits';
+let limits = {};
+try { limits = JSON.parse(localStorage.getItem(LIMIT_KEY)) || {}; } catch (e) { limits = {}; }
+
+function applyLimit(c, item) {
+  const lim = limits[item.tag], has = !!lim && Number.isFinite(lim.value);
+  c.cell.classList.toggle('limited', has);
+  c.lim.hidden = !has;
+  if (!has) { c.cell.classList.remove('over', 'under'); return; }
+  const below = lim.dir === 'below', out = below ? item.v < lim.value : item.v > lim.value;
+  c.cell.classList.toggle('over', out);
+  c.cell.classList.toggle('under', !out);
+  c.lim.textContent = `${out ? (below ? 'Below' : 'Above') + ' limit' : 'Within limit'} · ${below ? 'min' : 'max'} ${num(lim.value)}`;
+}
+
+function openLimits() {
+  const rows = [...liveNow.values()].map(item => {
+    const lim = limits[item.tag] || {};
+    const row = document.createElement('div'); row.className = 'lim-row'; row.dataset.tag = item.tag;
+    const name = document.createElement('div'); name.className = 'lim-name';
+    const title = document.createElement('b'); title.textContent = item.description || item.tag;
+    const code = document.createElement('span'); code.textContent = `${item.tag} · now ${liveNum(item.v)} ${item.unit || ''}`;
+    name.append(title, code);
+    const dir = document.createElement('select'); dir.setAttribute('aria-label', `Alarm side for ${item.tag}`);
+    for (const [v, t] of [['above', 'Red above'], ['below', 'Red below']]) { const o = document.createElement('option'); o.value = v; o.textContent = t; dir.append(o); }
+    dir.value = lim.dir || 'above';
+    const input = document.createElement('input'); input.type = 'number'; input.step = 'any'; input.inputMode = 'decimal';
+    input.placeholder = 'No limit'; input.setAttribute('aria-label', `Limit for ${item.tag}`);
+    if (Number.isFinite(lim.value)) input.value = lim.value;
+    row.append(name, dir, input);
+    return row;
+  });
+  $('limList').replaceChildren(...rows);
+  $('limEmpty').hidden = rows.length > 0;
+  $('limDialog').showModal();
+}
+
+function saveLimits() {
+  for (const row of $('limList').children) {
+    const value = row.querySelector('input').value.trim();
+    if (value === '' || !Number.isFinite(Number(value))) delete limits[row.dataset.tag];
+    else limits[row.dataset.tag] = { value: Number(value), dir: row.querySelector('select').value };
+  }
+  try { localStorage.setItem(LIMIT_KEY, JSON.stringify(limits)); } catch (e) { /* kept for this visit only */ }
+  liveCells.forEach((c, tag) => { const item = liveNow.get(tag); if (item) applyLimit(c, item); });
+  $('limDialog').close();
+}
+
+$('limOpen').addEventListener('click', openLimits);
+$('limSave').addEventListener('click', saveLimits);
+$('limCancel').addEventListener('click', () => $('limDialog').close());
+$('limClose').addEventListener('click', () => $('limDialog').close());
+$('limClear').addEventListener('click', () => { for (const input of $('limList').querySelectorAll('input')) input.value = ''; });
 
 function drawSpark(c) {
   const lo = Math.min(...c.seen), hi = Math.max(...c.seen), span = (hi - lo) || 1;
@@ -180,6 +237,7 @@ function drawLive(reply) {
     if (item.t !== c.last) { c.last = item.t; c.seen.push(item.v); if (c.seen.length > LIVE_KEEP) c.seen.shift(); }
     drawSpark(c);
     c.cell.dataset.dir = setChange(c.chg, c.seen.length > 1 ? item.v - c.seen[0] : null, c.seen[0], liveNum);
+    applyLimit(c, item);
     c.cell.setAttribute('aria-pressed', String(item.tag === state.tag));
     c.cell.setAttribute('aria-label', `${item.description || item.tag}, ${liveNum(item.v)} ${item.unit || ''}. Show trend.`);
     newest = Math.max(newest, item.t);

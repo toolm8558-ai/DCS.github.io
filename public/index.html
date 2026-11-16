@@ -264,6 +264,31 @@ th:first-child,td:first-child{text-align:left;padding-left:0}
 .h-table th,.h-table td{padding:6px 10px}
 .h-table th:first-child,.h-table td:first-child{padding-left:10px}
 
+/* ---------- Live value limits ---------- */
+.sec-title{flex-wrap:wrap}
+.cell.limited .chg{color:var(--ink3)}
+.cell.limited .spark polyline{stroke:var(--ink3)}
+.cell.under{border-color:color-mix(in srgb,var(--up) 55%,var(--line));background:color-mix(in srgb,var(--up) 7%,var(--surface))}
+.cell.under .val{color:var(--up)}
+.cell.over{border-color:var(--down);background:color-mix(in srgb,var(--down) 9%,var(--surface));animation:alarm 1.6s ease-in-out infinite}
+.cell.over .val{color:var(--down)}
+@keyframes alarm{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--down) 40%,transparent)}50%{box-shadow:0 0 0 5px transparent}}
+.lim{margin:2px 0 6px;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell.over .lim{color:var(--down)}
+.cell.under .lim{color:var(--up)}
+.lim-dialog{width:min(640px,calc(100vw - 24px))}
+.lim-row{display:grid;grid-template-columns:minmax(0,1fr) 116px 120px;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--grid)}
+.lim-row:last-child{border-bottom:0}
+.lim-name{min-width:0}
+.lim-name b{display:block;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lim-name span{display:block;font-size:12px;color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lim-row select,.lim-row input{width:100%;height:38px;padding:0 10px;border:1px solid var(--axis);border-radius:8px;background:var(--surface);color:var(--ink);font-size:13.5px}
+.lim-row input:focus,.lim-row select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+.lim-foot{display:flex;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid var(--line)}
+.lim-foot span{flex:1}
+.lim-ghost{height:40px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink2);font-weight:500}
+.lim-ghost:hover{background:var(--hover)}
+
 /* ---------- Embed + responsive ---------- */
 body.embed .nav{display:none}
 body.embed main.wrap{padding:12px}
@@ -313,6 +338,9 @@ body{overflow-x:clip}
   .custom .field{flex:1 1 140px}.custom .field input{width:100%}.custom .btn{width:100%}
   th,td{padding:10px 10px;font-size:13px}
   #csv{font-size:0;padding:0 10px}#csv:after{content:"CSV";font-size:13px}
+  .lim-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .lim-name{grid-column:1/-1}
+  .lim-foot{padding:12px 14px;flex-wrap:wrap}
   .h-scroll{padding:14px}
   .h-head{padding:14px}
   .h-row{grid-template-columns:minmax(0,1fr) auto}
@@ -352,7 +380,7 @@ body{overflow-x:clip}
 
   <main class="wrap">
     <section aria-labelledby="liveTitle">
-      <div class="sec-head"><div class="sec-title"><h2 id="liveTitle">Live values</h2><button type="button" class="h-open" id="hOpen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11Z"/><path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5"/></svg>Enthalpy</button></div><span id="fresh">Checking saved history…</span></div>
+      <div class="sec-head"><div class="sec-title"><h2 id="liveTitle">Live values</h2><button type="button" class="h-open" id="hOpen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11Z"/><path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5"/></svg>Enthalpy</button><button type="button" class="h-open" id="limOpen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 16l4-5 3 3 5-7"/><path d="M4 6h16" stroke-dasharray="2 2"/></svg>Limits</button></div><span id="fresh">Checking saved history…</span></div>
       <div class="live" id="live">
         <article class="steam" id="steamCard" aria-label="Live steam rate">
           <div class="top"><span class="av" aria-hidden="true">SR</span><div class="name">Live steam rate</div></div>
@@ -451,6 +479,23 @@ body{overflow-x:clip}
     <p class="h-intro">How much of the ideal enthalpy drop the turbine actually uses between its inlet and the 1st extraction.</p>
     <div id="hEff"></div>
   </div>
+</dialog>
+<dialog id="limDialog" class="h-dialog lim-dialog" aria-labelledby="limTitle">
+  <header class="h-head">
+    <div><h3 id="limTitle">Live value limits</h3><p>Saved in this browser only. Each person can set their own.</p></div>
+    <button type="button" class="icon-btn" id="limClose" aria-label="Close">×</button>
+  </header>
+  <div class="h-scroll">
+    <p class="h-intro">Set a limit for any live value. When the value goes past it the card turns <b class="down">red</b>; while it stays within it the card is <b class="up">green</b>. Leave a box empty for no limit.</p>
+    <div id="limList"></div>
+    <p class="h-note" id="limEmpty" hidden>Live values have not arrived yet. Close this and try again in a moment.</p>
+  </div>
+  <footer class="lim-foot">
+    <button type="button" class="lim-ghost" id="limClear">Clear all</button>
+    <span></span>
+    <button type="button" class="lim-ghost" id="limCancel">Cancel</button>
+    <button type="button" class="btn" id="limSave">Save limits</button>
+  </footer>
 </dialog>
 <script src="app.js"></script>
 <script src="enthalpy.js"></script>
