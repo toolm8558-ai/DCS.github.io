@@ -124,6 +124,26 @@ body.embed main{padding-top:12px}
 @media(max-width:860px){.wrap{padding-left:18px;padding-right:18px}.live{grid-template-columns:repeat(2,minmax(0,1fr))}.cell .spark,.range{display:none}.cell .reading{margin-bottom:9px}.brand p{display:none}.figures{grid-template-columns:repeat(2,minmax(0,1fr))}.fig{border-bottom:1px solid var(--line)}.fig:nth-child(2n){border-right:0}.fig:last-child{grid-column:span 2;border-bottom:0}.fig.lead .val{font-size:34px}.presets{overflow-x:auto}.presets button{flex:1 0 auto}#chartBox{height:320px}}
 @media(max-width:560px){.wrap{padding-left:12px;padding-right:12px}.bar{flex-wrap:wrap;gap:8px 10px}.pill{order:3;width:100%}.brand img{width:36px;height:36px}.ghost{height:34px;padding:0 10px}.cell{padding:10px 11px 11px}.cell .val{font-size:23px}.cell .name{font-size:13px}.filters{grid-template-columns:minmax(0,1fr)}.search,.presetField{grid-column:auto}#show{width:100%}.fig{padding:12px 13px}.fig .val{font-size:21px}.fig.lead .val{font-size:27px;letter-spacing:-.5px}.title h2{font-size:20px}.title h2 small{display:block;margin-left:0}.chartWrap{padding:12px 10px 10px}#chartBox{height:270px}th,td{padding:7px 10px;font-size:13px}#csv{font-size:0;padding:0 10px}#csv:after{content:"CSV";font-size:13px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none !important;transition:none !important;scroll-behavior:auto !important}}
+.ai-assistant{position:fixed;right:22px;bottom:22px;z-index:20;font-size:14px}
+.ai-toggle{display:flex;align-items:center;gap:9px;height:48px;padding:0 17px;border:0;border-radius:999px;background:var(--action);color:#fff;box-shadow:0 8px 24px #10172638}
+.ai-toggle:hover{background:var(--action-hover);transform:translateY(-1px)}
+.ai-toggle svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ai-panel{position:absolute;right:0;bottom:60px;display:flex;flex-direction:column;width:min(380px,calc(100vw - 24px));height:min(520px,calc(100dvh - 100px));overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 16px 48px #10172638}
+.ai-panel[hidden]{display:none}
+.ai-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.ai-head strong{display:block;font-size:15px}
+.ai-head span{display:block;color:var(--ink3);font-size:12px}
+.ai-close{width:34px;height:34px;padding:0;font-size:20px;line-height:1}
+.ai-log{flex:1;overflow:auto;display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:14px;background:var(--page)}
+.ai-message{max-width:88%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);white-space:pre-wrap;overflow-wrap:anywhere}
+.ai-message.user{align-self:flex-end;background:var(--hover)}
+.ai-message.error{color:var(--err)}
+.ai-compose{display:flex;align-items:flex-end;gap:8px;padding:12px;border-top:1px solid var(--line)}
+.ai-compose textarea{flex:1;min-width:0;min-height:42px;max-height:100px;padding:10px;resize:vertical;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);font:inherit}
+.ai-compose button{height:42px;padding:0 14px;background:var(--action);border-color:var(--action);color:#fff}
+.ai-compose button:hover{background:var(--action-hover)}
+.ai-compose button:disabled,.ai-compose textarea:disabled{opacity:.65;cursor:wait}
+@media(max-width:560px){.ai-assistant{right:14px;bottom:14px}.ai-panel{height:min(520px,calc(100dvh - 86px))}}
 </style></head><body>
 <div class="gate" id="gate" hidden>
   <form id="keyForm" class="key">
@@ -181,6 +201,26 @@ body.embed main{padding-top:12px}
     </div>
     <div class="msg" id="message" hidden></div>
   </main>
+  <section class="ai-assistant" aria-label="AI assistant">
+    <div id="aiPanel" class="ai-panel" hidden>
+      <header class="ai-head">
+        <div><strong>AI Assistant</strong><span>Ask about the plant trends dashboard</span></div>
+        <button id="aiClose" class="ai-close" type="button" aria-label="Close assistant">×</button>
+      </header>
+      <div id="aiLog" class="ai-log" role="log" aria-live="polite" aria-relevant="additions">
+        <div class="ai-message">Hi! I can help explain the dashboard. I can’t see live trend data unless you share it here.</div>
+      </div>
+      <form id="aiForm" class="ai-compose">
+        <textarea id="aiInput" rows="1" maxlength="2000" placeholder="Ask a question..." aria-label="Your message" required></textarea>
+        <button id="aiSend" type="submit">Send</button>
+      </form>
+    </div>
+    <button id="aiToggle" class="ai-toggle" type="button" aria-expanded="false" aria-controls="aiPanel">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4L12 2Z"/><path d="m19 2 .8 2.2L22 5l-2.2.8L19 8l-.8-2.2L16 5l2.2-.8L19 2Z"/></svg>
+      <span>Ask AI</span>
+    </button>
+  </section>
 </div>
 <script src="app.js"></script>
+<script src="assistant.js"></script>
 </body></html>

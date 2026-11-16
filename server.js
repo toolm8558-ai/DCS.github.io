@@ -19,6 +19,7 @@ const RATES = { 't/h': 't', 'm3/h': 'm3', MW: 'MWh', kW: 'kWh' };
 const STATIC = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
+  '/assistant.js': ['assistant.js', 'text/javascript; charset=utf-8'],
   '/logo.png': ['logo.png', 'image/png'],
   '/favicon.png': ['favicon.png', 'image/png']
 };
@@ -36,6 +37,8 @@ function loadConfig() {
     uri: process.env.MONGO_URI || file.MongoUri,
     database: process.env.DB_NAME || file.Database || 'plant_trend',
     key: process.env.ACCESS_KEY || file.AccessKey || '',
+    openRouterKeys: [...new Set([process.env.OPENROUTER_API_KEY, process.env.OPENROUTER_API_KEY_FALLBACK].filter(key => key && key.trim()).map(key => key.trim()))],
+    openRouterModel: process.env.OPENROUTER_MODEL || 'openrouter/auto',
     port: Number(process.env.PORT || file.Port || 3000),
     host: process.env.HOST || file.Host || (process.env.PORT ? '0.0.0.0' : '127.0.0.1'),
     origin: process.env.ALLOWED_ORIGIN || file.AllowedOrigin || ''
@@ -46,6 +49,92 @@ function loadConfig() {
 }
 
 class BadRequest extends Error {}
+class AssistantUnavailable extends Error {}
+
+function readJson(req, limit) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0, tooLarge = false;
+    req.on('data', chunk => {
+      if (tooLarge) return;
+      size += chunk.length;
+      if (size > limit) {
+        tooLarge = true;
+        chunks.length = 0;
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (tooLarge) return reject(new BadRequest('Request body is too large'));
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      } catch {
+        reject(new BadRequest('Request body must be valid JSON'));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+function assistantMessages(payload) {
+  if (!payload || !Array.isArray(payload.messages) || payload.messages.length < 1 || payload.messages.length > 12) {
+    throw new BadRequest('Send between 1 and 12 chat messages');
+  }
+  const messages = payload.messages.map(message => {
+    const maxLength = message && message.role === 'assistant' ? 6000 : 2000;
+    if (!message || !['user', 'assistant'].includes(message.role) || typeof message.content !== 'string' ||
+        !message.content.trim() || message.content.length > maxLength) {
+      throw new BadRequest('Each chat message must have a valid role and fit within its character limit');
+    }
+    return { role: message.role, content: message.content.trim() };
+  });
+  if (messages[messages.length - 1].role !== 'user') throw new BadRequest('The last chat message must be from the user');
+  return messages;
+}
+
+async function assistantReply(cfg, messages) {
+  if (!cfg.openRouterKeys.length) {
+    throw new AssistantUnavailable('AI assistant is not configured. Set OPENROUTER_API_KEY and OPENROUTER_API_KEY_FALLBACK on the server.');
+  }
+
+  const failures = [];
+  for (const key of cfg.openRouterKeys) {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: cfg.openRouterModel,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are the AI assistant for a plant trends dashboard. Help users understand how to use the dashboard and answer questions clearly in the language they use. You cannot see live dashboard or database data unless the user includes it in their message; never claim that you have checked live data.'
+            },
+            ...messages
+          ],
+          max_tokens: 800
+        }),
+        signal: AbortSignal.timeout(45000)
+      });
+      if (!response.ok) {
+        if (response.body) await response.body.cancel();
+        failures.push(`provider returned ${response.status}`);
+        continue;
+      }
+      const result = await response.json();
+      const content = result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content;
+      if (typeof content !== 'string' || !content.trim()) {
+        failures.push('provider returned an empty reply');
+        continue;
+      }
+      return content.trim();
+    } catch (error) {
+      failures.push(error.name === 'TimeoutError' ? 'provider timed out' : 'provider request failed');
+    }
+  }
+  throw new AssistantUnavailable(`AI provider is unavailable (${failures.join('; ')}). Please try again later.`);
+}
 
 // Dates in the API are India time: yyyy-MM-dd or yyyy-MM-ddTHH:mm.
 function parseIst(text, name) {
@@ -245,19 +334,35 @@ async function main() {
     };
     if (cfg.origin) {
       res.setHeader('Access-Control-Allow-Origin', cfg.origin);
-      res.setHeader('Access-Control-Allow-Headers', 'x-api-key');
+      res.setHeader('Access-Control-Allow-Headers', 'x-api-key, content-type');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader('Access-Control-Max-Age', '86400');   // otherwise the browser asks before every live reading
     }
     if (req.method === 'OPTIONS') return send(204, '');
-    if (req.method !== 'GET') return send(405, JSON.stringify({ error: 'Only GET is supported' }));
 
     const asset = assets[url.pathname];
-    if (asset) {
+    if (asset && req.method === 'GET') {
       const headers = { 'Cache-Control': 'no-cache', ETag: asset.etag };
       // A proxy that compresses the file marks its copy of the tag as weak: W/"..."
       if ((req.headers['if-none-match'] || '').replace(/^W\//, '') === asset.etag) { res.writeHead(304, headers); return res.end(); }
       return send(200, asset.body, asset.type, headers);
     }
+
+    if (url.pathname === '/api/assistant' && req.method === 'POST') {
+      if (!allowed(req)) return send(401, JSON.stringify({ error: 'Wrong or missing access key' }));
+      try {
+        const messages = assistantMessages(await readJson(req, 128 * 1024));
+        send(200, JSON.stringify({ reply: await assistantReply(cfg, messages) }));
+      } catch (e) {
+        if (e instanceof BadRequest) return send(400, JSON.stringify({ error: e.message }));
+        if (e instanceof AssistantUnavailable) return send(503, JSON.stringify({ error: e.message }));
+        console.error(new Date().toISOString(), url.pathname, e);
+        send(502, JSON.stringify({ error: 'The AI assistant could not complete this request' }));
+      }
+      return;
+    }
+
+    if (req.method !== 'GET') return send(405, JSON.stringify({ error: 'Only GET is supported for this endpoint' }));
 
     const route = routes[url.pathname];
     if (!route) return send(404, JSON.stringify({ error: 'Not found' }));

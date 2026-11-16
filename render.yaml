@@ -14,3 +14,9 @@ services:
         value: plant_trend
       - key: ALLOWED_ORIGIN
         value: https://toolm8558-ai.github.io
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY_FALLBACK
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: openrouter/auto
