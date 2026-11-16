@@ -1,59 +1,12 @@
 'use strict';
 // Enthalpy panel: works out main steam enthalpy step by step from the live PT_02.PV and TT_07A.PV,
 // and the HP section efficiency from the 1st extraction, using IAPWS-IF97 Region 2 (superheated steam).
-// Uses $, api, liveNow, fmtDate, fmtSec, fmtTime, isoLocal from app.js.
+// Uses $, api, liveNow, fmtDate, fmtSec, fmtTime, isoLocal from app.js and IF97 from if97.js.
 (() => {
   const TAGS = { p: 'PT_02.PV', t: 'TT_07A.PV', flow: 'FT_02A.PV', load: 'TG_LOAD.PV', p2: 'PT_103_1.PV', t2: 'TE103.PV' };
-  const ATM = 1.0332, KGF_TO_MPA = 0.0980665, KCAL = 4.1868, R = 0.461526;
-
-  // IAPWS-IF97 Region 2 coefficients: ideal-gas part (9 terms) and residual part (43 terms).
-  const J0 = [0, 1, -5, -4, -3, -2, -1, 2, 3];
-  const N0 = [-0.96927686500217e1, 0.10086655968018e2, -0.56087911283020e-2, 0.71452738081455e-1, -0.40710498223928, 0.14240819171444e1, -0.43839511319450e1, -0.28408632460772, 0.21268463753307e-1];
-  const I = [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 5, 6, 6, 6, 7, 7, 7, 8, 8, 9, 10, 10, 10, 16, 16, 18, 20, 20, 20, 21, 22, 23, 24, 24, 24];
-  const J = [0, 1, 2, 3, 6, 1, 2, 4, 7, 36, 0, 1, 3, 6, 35, 1, 2, 3, 7, 3, 16, 35, 0, 11, 25, 8, 36, 13, 4, 10, 14, 29, 50, 57, 20, 35, 48, 21, 53, 39, 26, 40, 58];
-  const N = [-0.17731742473213e-2, -0.17834862292358e-1, -0.45996013696365e-1, -0.57581259083432e-1, -0.50325278727930e-1,
-    -0.33032641670203e-4, -0.18948987516315e-3, -0.39392777243355e-2, -0.43797295650573e-1, -0.26674547914087e-4,
-    0.20481737692309e-7, 0.43870667284435e-6, -0.32277677238570e-4, -0.15033924542148e-2, -0.40668253562649e-1,
-    -0.78847309559367e-9, 0.12790717852285e-7, 0.48225372718507e-6, 0.22922076337661e-5, -0.16714766451061e-10,
-    -0.21171472321355e-2, -0.23895741934104e2, -0.59059564324270e-17, -0.12621808899101e-5, -0.38946842435739e-1,
-    0.11256211360459e-10, -0.82311340897998e1, 0.19809712802088e-7, 0.10406965210174e-18, -0.10234747095929e-12,
-    -0.10018179379511e-8, -0.80882908646985e-10, 0.10693031879409, -0.33662250574171, 0.89185845355421e-24,
-    0.30629316876232e-12, -0.42002467698208e-5, -0.59056029685639e-21, 0.37826947613457e-5, -0.12768608934681e-14,
-    0.73087610595061e-28, 0.55414715350778e-16, -0.94369707241210e-5];
-
-  // p in MPa absolute, T in kelvin. Returns every intermediate number so the panel can show them.
-  function region2(p, T) {
-    const tau = 540 / T, pi = p;
-    let g0 = Math.log(pi), g0t = 0, gr = 0, grt = 0;
-    N0.forEach((n, i) => { g0 += n * tau ** J0[i]; g0t += n * J0[i] * tau ** (J0[i] - 1); });
-    const terms = N.map((n, i) => {
-      const part = n * pi ** I[i] * J[i] * (tau - 0.5) ** (J[i] - 1);
-      gr += n * pi ** I[i] * (tau - 0.5) ** J[i];
-      grt += part;
-      return part;
-    });
-    return { tau, pi, g0t, grt, terms, h: R * T * tau * (g0t + grt), s: R * (tau * (g0t + grt) - (g0 + gr)) };
-  }
+  // Steam properties come from if97.js, shared with the server's AI assistant.
+  const { ATM, KGF_TO_MPA, KCAL, R, I, J, N, region2, tsat, isentropicT, absMPa } = IF97;
   const h = (p, T) => region2(p, T).h;
-  const s = (p, T) => region2(p, T).s;
-
-  // Saturation temperature (K) at p MPa, IF97 Region 4.
-  function tsat(p) {
-    const n = [0.11670521452767e4, -0.72421316703206e6, -0.17073846940092e2, 0.12020824702470e5, -0.32325550322333e7, 0.14915108613530e2, -0.48232657361591e4, 0.40511340542057e6, -0.23855557567849, 0.65017534844798e3];
-    const b = p ** 0.25, E = b * b + n[2] * b + n[5], F = n[0] * b * b + n[3] * b + n[6], G = n[1] * b * b + n[4] * b + n[7];
-    const D = 2 * G / (-F - Math.sqrt(F * F - 4 * E * G));
-    return (n[9] + D - Math.sqrt((n[9] + D) ** 2 - 4 * (n[8] + n[9] * D))) / 2;
-  }
-
-  // Temperature at pressure p with entropy s1 (the ideal, loss-free end of the expansion).
-  function isentropicT(p, s1) {
-    let lo = tsat(p), hi = 1073.15;
-    if (s(p, lo) > s1) return null;   // would be wet steam: not shown here
-    for (let k = 0; k < 80; k++) { const m = (lo + hi) / 2; if (s(p, m) > s1) hi = m; else lo = m; }
-    return lo;
-  }
-
-  const absMPa = g => (g + ATM) * KGF_TO_MPA;
   const f = (v, d = 2) => Number(v).toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d });
   const sci = v => (v === 0 ? '0' : v.toExponential(4).replace('e', ' × 10^'));
   const row = (label, formula, value) => `<div class="h-row"><span>${label}</span><code>${formula}</code><b>${value}</b></div>`;
