@@ -57,7 +57,14 @@ ai('aiForm').addEventListener('submit', async event => {
         'Content-Type': 'application/json',
         'x-api-key': sessionStorage.getItem('trendKey') || ''
       },
-      body: JSON.stringify({ messages: assistant.history })
+      body: JSON.stringify({
+        messages: assistant.history,
+        dashboard: {
+          tag: ai('tagInput').value.trim(),
+          from: ai('from').value,
+          to: ai('to').value
+        }
+      })
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
