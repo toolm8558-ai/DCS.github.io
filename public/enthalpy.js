@@ -12,7 +12,7 @@
   const row = (label, formula, value) => `<div class="h-row"><span>${label}</span><code>${formula}</code><b>${value}</b></div>`;
   const step = (n, title, body, note) => `<section class="h-step"><div class="h-num">${n}</div><div class="h-body"><h4>${title}</h4>${body}${note ? `<p class="h-note">${note}</p>` : ''}</div></section>`;
 
-  let open = false, coeffOpen = false, extraction = null, extractionTimer = null;
+  let open = false, coeffOpen = false, extraction = null, extractionTimer = null, loadingExtraction = false;
 
   function liveValue(tag) {
     const item = liveNow.get(tag);
@@ -74,7 +74,8 @@
 
   async function loadExtraction() {
     const newest = Math.max(...[...liveNow.values()].map(i => i.t).filter(Number.isFinite), 0);
-    if (!newest) return;
+    if (!newest || loadingExtraction) return;
+    loadingExtraction = true;
     const from = isoLocal(newest - 2 * 3600000), to = isoLocal(newest + 60000);
     const lastOf = async tag => {
       const d = await api(`/api/trend?tag=${encodeURIComponent(tag)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
@@ -87,6 +88,7 @@
     } catch (e) {
       extraction = { error: e.message };
     }
+    loadingExtraction = false;
     if (open) renderEfficiency();
   }
 
@@ -126,19 +128,19 @@
     if (!open) return;
     renderMain.last = renderMain();
     renderEfficiency();
+    if (!extraction && !loadingExtraction && liveNow.size) loadExtraction();   // page opened before live values came
   }
 
-  $('hOpen').addEventListener('click', () => {
-    open = true;
-    $('hDialog').showModal();
+  // The enthalpy page (#/enthalpy): tools.js calls this when the page is shown (true) or left (false).
+  window.enthalpyPage = show => {
+    if (show === open) return;
+    open = show;
+    clearInterval(extractionTimer);
+    if (!show) return;
     render();
     loadExtraction();
-    clearInterval(extractionTimer);
     extractionTimer = setInterval(loadExtraction, 60000);
-  });
-  $('hDialog').addEventListener('close', () => { open = false; clearInterval(extractionTimer); });
-  $('hClose').addEventListener('click', () => $('hDialog').close());
-  $('hDialog').addEventListener('click', e => { if (e.target === $('hDialog')) $('hDialog').close(); });
+  };
 
   // app.js calls this after every live reading.
   window.onLiveReading = render;

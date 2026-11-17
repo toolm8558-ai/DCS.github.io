@@ -226,14 +226,6 @@ th:first-child,td:first-child{text-align:left;padding-left:0}
 .ai-compose .ai-lang:hover{background:var(--hover)}
 /* ---------- Enthalpy panel ---------- */
 .sec-title{display:flex;align-items:center;gap:12px}
-.h-dialog{width:min(760px,calc(100vw - 24px));max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:var(--shadow-lg);overflow:hidden}
-.h-dialog[open]{display:flex;flex-direction:column}
-.h-dialog::backdrop{background:#0000006b}
-.h-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
-.h-head h3{font-size:18px;font-weight:600}
-.h-head p{font-size:12.5px;color:var(--ink3)}
-.h-head .icon-btn{font-size:20px;line-height:1}
-.h-scroll{overflow-y:auto;padding:20px}
 .h-hero{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px;padding:16px 18px;border-radius:12px;background:var(--brand-soft)}
 .h-hero b{font-size:34px;font-weight:700;letter-spacing:-.6px;color:var(--brand);font-variant-numeric:tabular-nums}
 .h-hero small{font-size:15px;color:var(--ink2)}
@@ -249,7 +241,7 @@ th:first-child,td:first-child{text-align:left;padding-left:0}
 .h-body h4{font-size:14.5px;font-weight:600;margin:3px 0 8px}
 .h-row{display:grid;grid-template-columns:minmax(120px,.9fr) minmax(0,1.6fr) auto;align-items:baseline;gap:4px 14px;padding:5px 0;font-size:13.5px}
 .h-row span{color:var(--ink2)}
-.h-row code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--ink3);overflow-wrap:anywhere}
+.h-row code{justify-self:start;text-align:left;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--ink3);overflow-wrap:anywhere}
 .h-row b{font-weight:600;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .h-row em{font-style:normal;color:var(--brand)}
 .h-formula{margin:4px 0 10px;padding:10px 14px;border-left:3px solid var(--brand);border-radius:6px;background:var(--soft);font:600 14.5px/1.5 ui-monospace,Consolas,monospace;overflow-x:auto}
@@ -275,7 +267,6 @@ th:first-child,td:first-child{text-align:left;padding-left:0}
 .lim{margin:2px 0 6px;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cell.over .lim{color:var(--down)}
 .cell.under .lim{color:var(--up)}
-.lim-dialog{width:min(640px,calc(100vw - 24px))}
 .lim-row{display:grid;grid-template-columns:minmax(0,1fr) 116px 120px;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--grid)}
 .lim-row:last-child{border-bottom:0}
 .lim-name{min-width:0}
@@ -283,7 +274,7 @@ th:first-child,td:first-child{text-align:left;padding-left:0}
 .lim-name span{display:block;font-size:12px;color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lim-row select,.lim-row input{width:100%;height:38px;padding:0 10px;border:1px solid var(--axis);border-radius:8px;background:var(--surface);color:var(--ink);font-size:13.5px}
 .lim-row input:focus,.lim-row select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
-.lim-foot{display:flex;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid var(--line)}
+.lim-foot{display:flex;align-items:center;gap:8px;margin-top:16px}
 .lim-foot span{flex:1}
 .lim-ghost{height:40px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink2);font-weight:500}
 .lim-ghost:hover{background:var(--hover)}
@@ -309,7 +300,6 @@ button.brand:hover{background:var(--hover);border-color:var(--line)}
 .m-item em{display:block;font-style:normal;font-size:12.5px;color:var(--ink3)}
 
 /* ---------- Turbine performance and Compare tags ---------- */
-.big-dialog{width:min(1100px,calc(100vw - 24px))}
 .p-chips{margin:0;padding:0;border-bottom:0}
 .p-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:16px 0 6px}
 .p-stat{padding:12px 14px;border:1px solid var(--line);border-radius:12px}
@@ -355,6 +345,20 @@ button.brand:hover{background:var(--hover);border-color:var(--line)}
 .cmp-table{margin-top:18px;overflow-x:auto}
 .cmp-table td:first-child{display:flex;align-items:center}
 
+/* ---------- Pages (#/performance, #/compare, #/enthalpy, #/limits) ---------- */
+.page{padding-bottom:20px}
+.page-narrow{max-width:860px}
+.page-head{margin-bottom:20px}
+.back{display:inline-flex;align-items:center;gap:2px;margin:0 0 10px -4px;padding:4px 8px 4px 4px;border-radius:8px;color:var(--ink2);font-size:13.5px;font-weight:500;text-decoration:none}
+.back:hover{background:var(--hover);color:var(--ink)}
+.back svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.page-head h1{font-size:28px;font-weight:700;letter-spacing:-.5px;line-height:1.2}
+.page-head p{margin-top:4px;color:var(--ink3)}
+.card-block{margin-top:20px;padding:18px 20px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.card-block .p-h:first-child{margin-top:0}
+.p-h{font-size:17px}
+a.m-item{text-decoration:none}
+
 /* ---------- Embed + responsive ---------- */
 body.embed .nav{display:none}
 body.embed main.wrap{padding:12px}
@@ -371,6 +375,9 @@ body{overflow-x:clip}
   .layout{grid-template-columns:minmax(0,1fr);gap:28px}
 }
 @media(max-width:760px){
+  .page-head h1{font-size:22px}
+  .card-block{padding:14px 12px}
+  .p-scatter{height:300px}
   .wrap{padding-left:16px;padding-right:16px}
   .nav-in{height:60px;gap:10px}
   .brand img{width:30px;height:30px}
@@ -406,9 +413,7 @@ body{overflow-x:clip}
   #csv{font-size:0;padding:0 10px}#csv:after{content:"CSV";font-size:13px}
   .lim-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .lim-name{grid-column:1/-1}
-  .lim-foot{padding:12px 14px;flex-wrap:wrap}
-  .h-scroll{padding:14px}
-  .h-head{padding:14px}
+  .lim-foot{flex-wrap:wrap}
   .h-row{grid-template-columns:minmax(0,1fr) auto}
   .h-row code{grid-column:1/-1;grid-row:2}
   .h-step{gap:10px}
@@ -445,6 +450,7 @@ body{overflow-x:clip}
   </header>
 
   <main class="wrap">
+   <div id="viewHome" class="view">
     <section aria-labelledby="liveTitle">
       <div class="sec-head"><div class="sec-title"><h2 id="liveTitle">Live values</h2></div><span id="fresh">Checking saved history…</span></div>
       <div class="live" id="live">
@@ -506,6 +512,87 @@ body{overflow-x:clip}
       </div>
     </section>
     <div class="msg" id="message" hidden></div>
+   </div>
+
+   <!-- Pages opened from the menu. The address shows #/performance, #/compare, #/enthalpy or #/limits. -->
+   <section id="viewPerf" class="view page" hidden aria-labelledby="perfTitle">
+    <div class="page-head">
+      <a class="back" href="#/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Dashboard</a>
+      <h1 id="perfTitle">Turbine performance</h1>
+      <p>Minutes with TG load 10 MW or more. Each dot is one minute (or one averaged point for long periods).</p>
+    </div>
+    <div class="chips p-chips" id="perfChips" role="group" aria-label="Period"></div>
+    <p class="h-warn" id="perfMsg" hidden></p>
+    <div id="perfBody">
+      <div class="p-stats" id="perfStats"></div>
+      <div class="card-block">
+        <h2 class="p-h">Steam rate vs main steam enthalpy</h2>
+        <p class="h-note">Higher enthalpy should need less steam per MW, so the dots should slope down. Darker dots are higher load. The dashed line is the plant fit.</p>
+        <div class="p-chart p-scatter"><svg id="perfScatter" aria-label="Scatter of steam rate against main steam enthalpy, coloured by TG load"></svg><div class="p-tip" id="perfTip" hidden></div></div>
+        <div class="p-legend" id="perfLegend"></div>
+      </div>
+      <div class="card-block">
+        <h2 class="p-h">Corrected steam rate over time</h2>
+        <p class="h-note">Corrected steam rate removes the effect of steam conditions and load (to 3440 kJ/kg and 19.5 MW). A slow rise points to the turbine itself, such as wear or leakage.</p>
+        <div class="p-legend"><span><i class="sw" style="background:var(--s1)"></i>Corrected (SR_CORR.PV)</span><span><i class="sw" style="background:var(--ink3)"></i>Actual (STEAM_RATE.PV)</span><span>TPH/MW</span></div>
+        <div class="p-chart p-line"><svg id="perfLine" aria-label="Corrected and actual steam rate over time"></svg><div class="p-tip" id="perfTip2" hidden></div></div>
+        <p class="h-note" id="perfLineNote"></p>
+      </div>
+    </div>
+   </section>
+
+   <section id="viewCompare" class="view page" hidden aria-labelledby="cmpTitle">
+    <div class="page-head">
+      <a class="back" href="#/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Dashboard</a>
+      <h1 id="cmpTitle">Compare tags</h1>
+      <p>Up to 6 tags on one time axis. Each tag keeps its own scale; hover to read every value at the same moment.</p>
+    </div>
+    <div class="cmp-bar">
+      <div class="cmp-picked" id="cmpPicked"></div>
+      <div class="cmp-add"><input id="cmpAdd" placeholder="Add a tag…" autocomplete="off" aria-label="Add a tag"><ul id="cmpMatches" class="cmp-matches" hidden></ul></div>
+    </div>
+    <div class="cmp-bar">
+      <div class="chips p-chips" id="cmpChips" role="group" aria-label="Period"></div>
+      <div class="seg-mini" role="group" aria-label="Chart layout"><button type="button" id="cmpStack" class="on">Stacked</button><button type="button" id="cmpOverlay">Overlay %</button></div>
+    </div>
+    <div class="card-block">
+      <div class="cmp-charts" id="cmpCharts"><div class="p-tip" id="cmpTip" hidden></div></div>
+    </div>
+    <div class="cmp-table" id="cmpTableWrap" hidden>
+      <table id="cmpTable"><thead><tr><th>Tag</th><th>Unit</th><th>Min</th><th>Average</th><th>Max</th><th>Last</th><th>Recorded</th></tr></thead><tbody></tbody></table>
+    </div>
+   </section>
+
+   <section id="viewEnthalpy" class="view page page-narrow" hidden aria-labelledby="hTitle">
+    <div class="page-head">
+      <a class="back" href="#/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Dashboard</a>
+      <h1 id="hTitle">Main steam enthalpy</h1>
+      <p id="hTime">Waiting for live values</p>
+    </div>
+    <div class="h-hero" id="hHero"></div>
+    <p class="h-intro">Enthalpy (h) is the heat energy in each kilogram of steam. It is worked out from the main steam pressure and temperature with IAPWS-IF97, the international standard for steam properties. Every step below uses the live values and updates every 2 seconds.</p>
+    <div id="hMain"></div>
+    <h2 class="h-sub">Turbine HP section efficiency</h2>
+    <p class="h-intro">How much of the ideal enthalpy drop the turbine actually uses between its inlet and the 1st extraction.</p>
+    <div id="hEff"></div>
+   </section>
+
+   <section id="viewLimits" class="view page page-narrow" hidden aria-labelledby="limTitle">
+    <div class="page-head">
+      <a class="back" href="#/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Dashboard</a>
+      <h1 id="limTitle">Live value limits</h1>
+      <p>Saved in this browser only. Each person can set their own.</p>
+    </div>
+    <p class="h-intro">Set a limit for any live value. When the value goes past it the card turns <b class="down">red</b>; while it stays within it the card is <b class="up">green</b>. Leave a box empty for no limit.</p>
+    <div class="card-block"><div id="limList"></div>
+    <p class="h-note" id="limEmpty" hidden>Live values have not arrived yet. They will appear here in a moment.</p></div>
+    <div class="lim-foot">
+      <button type="button" class="lim-ghost" id="limClear">Clear all</button>
+      <span></span>
+      <button type="button" class="lim-ghost" id="limCancel">Cancel</button>
+      <button type="button" class="btn" id="limSave">Save limits</button>
+    </div>
+   </section>
   </main>
 
   <section class="ai-assistant" aria-label="AI assistant">
@@ -532,94 +619,19 @@ body{overflow-x:clip}
     </button>
   </section>
 </div>
-<dialog id="hDialog" class="h-dialog" aria-labelledby="hTitle">
-  <header class="h-head">
-    <div><h3 id="hTitle">Main steam enthalpy</h3><p id="hTime">Waiting for live values</p></div>
-    <button type="button" class="icon-btn" id="hClose" aria-label="Close">×</button>
-  </header>
-  <div class="h-scroll">
-    <div class="h-hero" id="hHero"></div>
-    <p class="h-intro">Enthalpy (h) is the heat energy in each kilogram of steam. It is worked out from the main steam pressure and temperature with IAPWS-IF97, the international standard for steam properties. Every step below uses the live values and updates every 2 seconds.</p>
-    <div id="hMain"></div>
-    <h3 class="h-sub">Turbine HP section efficiency</h3>
-    <p class="h-intro">How much of the ideal enthalpy drop the turbine actually uses between its inlet and the 1st extraction.</p>
-    <div id="hEff"></div>
-  </div>
-</dialog>
-<dialog id="limDialog" class="h-dialog lim-dialog" aria-labelledby="limTitle">
-  <header class="h-head">
-    <div><h3 id="limTitle">Live value limits</h3><p>Saved in this browser only. Each person can set their own.</p></div>
-    <button type="button" class="icon-btn" id="limClose" aria-label="Close">×</button>
-  </header>
-  <div class="h-scroll">
-    <p class="h-intro">Set a limit for any live value. When the value goes past it the card turns <b class="down">red</b>; while it stays within it the card is <b class="up">green</b>. Leave a box empty for no limit.</p>
-    <div id="limList"></div>
-    <p class="h-note" id="limEmpty" hidden>Live values have not arrived yet. Close this and try again in a moment.</p>
-  </div>
-  <footer class="lim-foot">
-    <button type="button" class="lim-ghost" id="limClear">Clear all</button>
-    <span></span>
-    <button type="button" class="lim-ghost" id="limCancel">Cancel</button>
-    <button type="button" class="btn" id="limSave">Save limits</button>
-  </footer>
-</dialog>
 <dialog id="menu" class="drawer" aria-label="Menu">
   <div class="drawer-head"><img src="logo.png" alt="" width="36" height="36"><div><b>DCS Trends</b><span>Plant performance</span></div></div>
   <nav class="m-list">
     <p class="m-label">Analysis</p>
-    <button type="button" class="m-item" data-go="perf"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="15" r="1.5"/><circle cx="11" cy="11" r="1.5"/><circle cx="15" cy="13" r="1.5"/><circle cx="18" cy="7" r="1.5"/><path d="M3 3v18h18"/></svg><span><b>Turbine performance</b><em>Steam rate vs enthalpy, corrected steam rate</em></span></button>
-    <button type="button" class="m-item" data-go="compare"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7l5 3 4-4 4 3 5-4M3 17l5-2 4 2 4-3 5 2"/></svg><span><b>Compare tags</b><em>Several tags on one time axis</em></span></button>
-    <button type="button" class="m-item" id="hOpen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11Z"/><path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5"/></svg><span><b>Enthalpy calculator</b><em>Step-by-step IAPWS-IF97 working</em></span></button>
-    <button type="button" class="m-item" id="limOpen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 16l4-5 3 3 5-7"/><path d="M4 6h16" stroke-dasharray="2 2"/></svg><span><b>Live limits</b><em>Red and green limits on live values</em></span></button>
+    <a class="m-item" href="#/performance"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="15" r="1.5"/><circle cx="11" cy="11" r="1.5"/><circle cx="15" cy="13" r="1.5"/><circle cx="18" cy="7" r="1.5"/><path d="M3 3v18h18"/></svg><span><b>Turbine performance</b><em>Steam rate vs enthalpy, corrected steam rate</em></span></a>
+    <a class="m-item" href="#/compare"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7l5 3 4-4 4 3 5-4M3 17l5-2 4 2 4-3 5 2"/></svg><span><b>Compare tags</b><em>Several tags on one time axis</em></span></a>
+    <a class="m-item" href="#/enthalpy"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11Z"/><path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5"/></svg><span><b>Enthalpy calculator</b><em>Step-by-step IAPWS-IF97 working</em></span></a>
+    <a class="m-item" href="#/limits"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 16l4-5 3 3 5-7"/><path d="M4 6h16" stroke-dasharray="2 2"/></svg><span><b>Live limits</b><em>Red and green limits on live values</em></span></a>
     <button type="button" class="m-item" data-go="ai"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6Z"/></svg><span><b>Ask AI</b><em>Questions about plant data, by typing or voice</em></span></button>
     <p class="m-label">Settings</p>
     <button type="button" class="m-item" data-go="theme"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg><span><b>Light / dark view</b></span></button>
     <button type="button" class="m-item" data-go="signout"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span><b>Sign out</b></span></button>
   </nav>
-</dialog>
-
-<dialog id="perfDialog" class="h-dialog big-dialog" aria-labelledby="perfTitle">
-  <header class="h-head">
-    <div><h3 id="perfTitle">Turbine performance</h3><p>Minutes with TG load 10 MW or more. Each dot is one minute (or one averaged point for long periods).</p></div>
-    <button type="button" class="icon-btn" id="perfClose" aria-label="Close">×</button>
-  </header>
-  <div class="h-scroll">
-    <div class="chips p-chips" id="perfChips" role="group" aria-label="Period"></div>
-    <p class="h-warn" id="perfMsg" hidden></p>
-    <div id="perfBody">
-      <div class="p-stats" id="perfStats"></div>
-      <h4 class="p-h">Steam rate vs main steam enthalpy</h4>
-      <p class="h-note">Higher enthalpy should need less steam per MW, so the dots should slope down. Darker dots are higher load. The dashed line is the plant fit.</p>
-      <div class="p-chart p-scatter"><svg id="perfScatter" aria-label="Scatter of steam rate against main steam enthalpy, coloured by TG load"></svg><div class="p-tip" id="perfTip" hidden></div></div>
-      <div class="p-legend" id="perfLegend"></div>
-      <h4 class="p-h">Corrected steam rate over time</h4>
-      <p class="h-note">Corrected steam rate removes the effect of steam conditions and load (to 3440 kJ/kg and 19.5 MW). A slow rise points to the turbine itself, such as wear or leakage.</p>
-      <div class="p-legend"><span><i class="sw" style="background:var(--s1)"></i>Corrected (SR_CORR.PV)</span><span><i class="sw" style="background:var(--ink3)"></i>Actual (STEAM_RATE.PV)</span><span>TPH/MW</span></div>
-      <div class="p-chart p-line"><svg id="perfLine" aria-label="Corrected and actual steam rate over time"></svg><div class="p-tip" id="perfTip2" hidden></div></div>
-      <p class="h-note" id="perfLineNote"></p>
-    </div>
-  </div>
-</dialog>
-
-<dialog id="cmpDialog" class="h-dialog big-dialog" aria-labelledby="cmpTitle">
-  <header class="h-head">
-    <div><h3 id="cmpTitle">Compare tags</h3><p>Up to 6 tags on one time axis. Each tag keeps its own scale; hover to read every value at the same moment.</p></div>
-    <button type="button" class="icon-btn" id="cmpClose" aria-label="Close">×</button>
-  </header>
-  <div class="h-scroll">
-    <div class="cmp-bar">
-      <div class="cmp-picked" id="cmpPicked"></div>
-      <div class="cmp-add"><input id="cmpAdd" placeholder="Add a tag…" autocomplete="off" aria-label="Add a tag"><ul id="cmpMatches" class="cmp-matches" hidden></ul></div>
-    </div>
-    <div class="cmp-bar">
-      <div class="chips p-chips" id="cmpChips" role="group" aria-label="Period"></div>
-      <div class="seg-mini" role="group" aria-label="Chart layout"><button type="button" id="cmpStack" class="on">Stacked</button><button type="button" id="cmpOverlay">Overlay %</button></div>
-    </div>
-    <div class="cmp-charts" id="cmpCharts"><div class="p-tip" id="cmpTip" hidden></div></div>
-    <div class="cmp-table" id="cmpTableWrap" hidden>
-      <table id="cmpTable"><thead><tr><th>Tag</th><th>Unit</th><th>Min</th><th>Average</th><th>Max</th><th>Last</th><th>Recorded</th></tr></thead><tbody></tbody></table>
-    </div>
-  </div>
 </dialog>
 <script src="app.js"></script>
 <script src="if97.js"></script>

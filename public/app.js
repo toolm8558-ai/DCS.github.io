@@ -179,7 +179,6 @@ function openLimits() {
   });
   $('limList').replaceChildren(...rows);
   $('limEmpty').hidden = rows.length > 0;
-  $('limDialog').showModal();
 }
 
 function saveLimits() {
@@ -190,13 +189,12 @@ function saveLimits() {
   }
   try { localStorage.setItem(LIMIT_KEY, JSON.stringify(limits)); } catch (e) { /* kept for this visit only */ }
   liveCells.forEach((c, tag) => { const item = liveNow.get(tag); if (item) applyLimit(c, item); });
-  $('limDialog').close();
+  location.hash = '#/';   // back to the dashboard to see the colours
 }
 
-$('limOpen').addEventListener('click', openLimits);
+// The limits page (#/limits) is opened from the menu; tools.js calls openLimits when it is shown.
 $('limSave').addEventListener('click', saveLimits);
-$('limCancel').addEventListener('click', () => $('limDialog').close());
-$('limClose').addEventListener('click', () => $('limDialog').close());
+$('limCancel').addEventListener('click', () => { location.hash = '#/'; });
 $('limClear').addEventListener('click', () => { for (const input of $('limList').querySelectorAll('input')) input.value = ''; });
 
 function drawSpark(c) {
@@ -244,6 +242,7 @@ function drawLive(reply) {
   }
   drawSteamRate(reply.tags);
   if (window.onLiveReading) window.onLiveReading();
+  if (!$('viewLimits').hidden && !$('limList').children.length) openLimits();   // limits page opened before live values came
   const stale = !newest || reply.now - newest > LIVE_STALE_MS;
   $('live').classList.toggle('stale', stale);
   setPill(stale ? 'stale' : 'ok', newest ? (stale ? `Live reading stopped at ${fmtSec(newest)}` : `Live, read at ${fmtSec(newest)}`) : 'No live readings yet');
@@ -346,6 +345,7 @@ function pick(tag) {
   state.tag = tag;
   $('tagInput').value = tag;
   closeMatches();
+  if (location.hash.length > 2) location.hash = '#/';   // a tag picked on another page opens its trend on the dashboard
   liveCells.forEach((c, name) => c.cell.setAttribute('aria-pressed', String(name === tag)));
   load();
 }
@@ -369,7 +369,7 @@ async function load() {
     const trend = await api(`/api/trend?${query}`);
     if (id !== request) return;
     data = trend;
-    history.replaceState(null, '', `?${new URLSearchParams({ ...(params.get('embed') ? { embed: 1 } : {}), tag: state.tag, from: state.from, to: state.to })}`);
+    history.replaceState(null, '', `?${new URLSearchParams({ ...(params.get('embed') ? { embed: 1 } : {}), tag: state.tag, from: state.from, to: state.to })}${location.hash}`);
     render();
     $('message').hidden = true;
     $('chartBox').style.opacity = 1;

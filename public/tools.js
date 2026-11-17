@@ -1,6 +1,6 @@
 'use strict';
-// Menu (opened from the DCS Trends logo), Turbine performance and Compare tags.
-// Uses $, api, el, num, niceTicks, timeTicks, fmtDate, fmtTime, isoLocal, todayStart, state from app.js.
+// Menu (opened from the DCS Trends logo), the pages it opens, Turbine performance and Compare tags.
+// Uses $, api, el, num, niceTicks, timeTicks, fmtDate, fmtTime, isoLocal, todayStart, state, openLimits from app.js.
 (() => {
   const MIN = 60000, HOUR = 3600000, DAY_MS = 86400000;
   const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -13,14 +13,36 @@
     if (e.target === menu) return menu.close();
     const item = e.target.closest('.m-item');
     if (!item) return;
-    menu.close();   // Enthalpy and Limits items open their own panels (enthalpy.js, app.js)
+    menu.close();   // page items are links (#/...), the router below shows the page
     const go = item.dataset.go;
-    if (go === 'perf') openPerf();
-    else if (go === 'compare') openCompare();
-    else if (go === 'ai') { if ($('aiPanel').hidden) $('aiToggle').click(); }
+    if (go === 'ai') { if ($('aiPanel').hidden) $('aiToggle').click(); }
     else if (go === 'theme') $('theme').click();
     else if (go === 'signout') $('signOut').click();
   });
+
+  // ---------- Pages ----------
+  // Each page has its own address, so Back, refresh and sharing a link all work.
+  const PAGES = {
+    '': { view: 'viewHome', title: 'DCS Trends' },
+    performance: { view: 'viewPerf', title: 'Turbine performance', enter: () => loadPerf() },
+    compare: { view: 'viewCompare', title: 'Compare tags', enter: () => openCompare() },
+    enthalpy: { view: 'viewEnthalpy', title: 'Enthalpy', enter: () => window.enthalpyPage(true), leave: () => window.enthalpyPage(false) },
+    limits: { view: 'viewLimits', title: 'Live limits', enter: () => openLimits() }
+  };
+  let current = null;
+  function route() {
+    const name = location.hash.replace(/^#\/?/, '');
+    const page = PAGES[name] ? name : '';
+    if (page === current) return;
+    if (current !== null && PAGES[current].leave) PAGES[current].leave();
+    current = page;
+    for (const [key, p] of Object.entries(PAGES)) $(p.view).hidden = key !== page;
+    document.title = page ? `${PAGES[page].title} · DCS Trends` : 'DCS Trends';
+    window.scrollTo(0, 0);
+    if (PAGES[page].enter) PAGES[page].enter();
+  }
+  window.addEventListener('hashchange', route);
+  const pageShown = view => !$(view).hidden;
 
   // ---------- Shared ----------
   function periodOf(name) {
@@ -58,8 +80,6 @@
 
   // ---------- Turbine performance ----------
   let perfPeriod = '7d', perfData = null;
-  function openPerf() { $('perfDialog').showModal(); loadPerf(); }
-  $('perfClose').addEventListener('click', () => $('perfDialog').close());
 
   async function loadPerf() {
     chips($('perfChips'), [['today', 'Today'], ['yesterday', 'Yesterday'], ['7d', '7D'], ['30d', '30D']], perfPeriod, k => { perfPeriod = k; loadPerf(); });
@@ -186,10 +206,8 @@
   let cmpTags = [], cmpPeriod = 'today', cmpMode = 'stack', cmpData = [], cmpMatches = [];
   function openCompare() {
     if (!cmpTags.length) cmpTags = [state.tag || 'STEAM_RATE.PV'].filter(Boolean);
-    $('cmpDialog').showModal();
     loadCompare();
   }
-  $('cmpClose').addEventListener('click', () => $('cmpDialog').close());
 
   function drawPicked() {
     $('cmpPicked').replaceChildren(...cmpTags.map((tag, i) => {
@@ -344,6 +362,8 @@
   let resize;
   window.addEventListener('resize', () => {
     clearTimeout(resize);
-    resize = setTimeout(() => { if ($('perfDialog').open) drawPerf(); if ($('cmpDialog').open) drawCompare(); }, 150);
+    resize = setTimeout(() => { if (pageShown('viewPerf')) drawPerf(); if (pageShown('viewCompare')) drawCompare(); }, 150);
   });
+
+  route();
 })();
