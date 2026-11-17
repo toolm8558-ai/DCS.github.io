@@ -140,7 +140,6 @@ function liveCell(item) {
   // The saved steam rate leads the list; the card worked out in the browser is then no longer needed.
   if (item.tag === STEAM_TAG) {
     cell.classList.add('featured'); $('live').prepend(cell);
-    if ($('steamCard')) $('steamCard').remove();
   } else $('live').append(cell);
   return { cell, val, line, chg, lim, seen: [], last: 0 };
 }
@@ -229,9 +228,15 @@ function drawSteamRate(tags) {
 // Performance tags that SteamRate.exe saves live are shown on the Turbine performance page, not as dashboard cards.
 const PAGE_ONLY_TAGS = ['H_MS.PV', 'SR_CORR.PV'];
 
+// Tags that SteamRate.exe works out. If it stops, their last live value stays in the database; a value older
+// than LIVE_STALE_MS is left out so it is not shown as live (the steam rate card then works it out here).
+const DERIVED_LIVE_TAGS = ['STEAM_RATE.PV', 'H_MS.PV', 'SR_CORR.PV'];
+
 function drawLive(reply) {
-  for (const item of reply.tags) liveNow.set(item.tag, item);
-  const tags = reply.tags.filter(x => !PAGE_ONLY_TAGS.includes(x.tag));
+  const fresh = reply.tags.filter(x => !DERIVED_LIVE_TAGS.includes(x.tag) || reply.now - x.t <= LIVE_STALE_MS);
+  for (const tag of DERIVED_LIVE_TAGS) liveNow.delete(tag);
+  for (const item of fresh) liveNow.set(item.tag, item);
+  const tags = fresh.filter(x => !PAGE_ONLY_TAGS.includes(x.tag));
   liveTags = tags.map(t => t.tag);
   let newest = 0;
   for (const item of tags) {
@@ -246,6 +251,10 @@ function drawLive(reply) {
     c.cell.setAttribute('aria-label', `${item.description || item.tag}, ${liveNum(item.v)} ${item.unit || ''}. Show trend.`);
     newest = Math.max(newest, item.t);
   }
+  // The saved steam rate shows while it is live; otherwise the card worked out in this page takes its place.
+  const steamLive = fresh.some(x => x.tag === STEAM_TAG), steamCell = liveCells.get(STEAM_TAG);
+  if (steamCell) steamCell.cell.hidden = !steamLive;
+  $('steamCard').hidden = steamLive;
   drawSteamRate(reply.tags);
   if (window.onLiveReading) window.onLiveReading();
   document.dispatchEvent(new Event('livereading'));   // pages that show live values listen for this
