@@ -36,10 +36,15 @@ from the plant's own data, the plant's notes, or a standard formula. Update it w
 | STEAM_RATE.PV | Steam rate = FT_02A.PV / TG_LOAD.PV, saved every second and every minute (not saved below 1 MW) | TPH/MW |
 | H_MS.PV | Main steam enthalpy from PT_02.PV and TT_07A.PV by IAPWS-IF97, every second and minute (not saved without 15 C of superheat) | kJ/kg |
 | SR_CORR.PV | Corrected steam rate, STEAM_RATE.PV brought to 3440 kJ/kg and 19.5 MW with the plant fit (only at 10 MW or more) | TPH/MW |
+| DH_IS.PV | Ideal (isentropic) enthalpy drop from main steam (PT_02, TT_07A) to exhaust pressure (PT_106_1), every minute | kJ/kg |
+| SR_IDEAL.PV | Ideal steam rate = 3600 / DH_IS.PV: the steam a loss-free turbine with no extraction would need | TPH/MW |
+| HP_EFF.PV | HP section isentropic efficiency, main steam to 1st extraction (PT_103_1, TE103), every minute | % |
 
-STEAM_RATE.PV, H_MS.PV and SR_CORR.PV are worked out by the SteamRate program from the other tags, not
-measured. They can be read with get_live_values, get_trend and compare_periods like any other tag; a rising
-SR_CORR.PV trend is the clearest sign of the turbine itself getting worse.
+STEAM_RATE.PV, H_MS.PV, SR_CORR.PV, DH_IS.PV, SR_IDEAL.PV and HP_EFF.PV are worked out by the SteamRate program
+from other tags, not measured. They can be read with get_trend and compare_periods like any other tag (the first
+three also live). DH_IS.PV, SR_IDEAL.PV and HP_EFF.PV are minute history only, because their exhaust and
+extraction inputs are not read live. A rising SR_CORR.PV, or a falling HP_EFF.PV, is the clearest sign of the
+turbine itself getting worse.
 
 PT_104_2.PV (2nd extraction) and TE105.PV (3rd extraction) belong to different points; do not pair them.
 No tag measures bagasse in tonnes (only feeder VFD speeds), and no tag for economiser inlet feed water
@@ -65,28 +70,48 @@ temperature has been confirmed.
 - Total enthalpy flow = steam flow x h. At 117.6 t/h that is about 112 MW of heat into the turbine.
 - The steam_properties tool works this out; it is checked for superheated steam up to 10 MPa only.
 
-## Steam rate and enthalpy move opposite ways
-- Lower enthalpy (and lower enthalpy drop) means each tonne of steam does less work, so more steam is needed
-  for the same MW: enthalpy down, steam rate up; enthalpy up, steam rate down.
-- Measured on this plant, 18-21 MW: main steam about 494 C (h 3375-3390) gave 5.85 TPH/MW; about 530 C
-  (h 3465-3480) gave 5.72 TPH/MW.
-- Plant fit (11-16 Nov 2026, 7282 minutes, load >= 10 MW):
-  steam rate = 12.702 - 0.00190 x h - 0.0221 x load. So +10 kJ/kg of enthalpy gives about -0.33 % steam rate,
-  +10 C gives about -0.8 %, and +1 MW gives about -0.022 TPH/MW.
-- At about 18.8 MW, 10 kJ/kg lower enthalpy costs about 0.36 t/h more steam (about 9 t/day).
-- Corrected steam rate (same steam conditions and load, to judge the turbine itself):
-  SR_corrected = SR_actual + 0.0019 x (h - 3440) + 0.0221 x (load - 19.5). A slow rise in SR_corrected points to
-  turbine wear or leakage rather than steam conditions.
-- Enthalpy and load explain only about 17 % of the minute-to-minute change in steam rate (R2 = 0.17). Extraction
-  and process steam demand, exhaust back-pressure and flow measurement also move it. Say so when it matters.
+## Steam rate is set by the enthalpy DROP, not by enthalpy alone
+- Power = m x dh, so m = Power / dh, and steam rate (kg/kWh = TPH/MW) = 3600 / dh (kJ/kg), where
+  dh = h1 - h2 is the enthalpy drop through the turbine. Examples: dh 1139 kJ/kg -> 3600 / 1139 = 3.16 kg/kWh;
+  dh 1000 kJ/kg -> 3.6 kg/kWh. For a real turbine divide by the isentropic efficiency:
+  steam rate = 3600 / (dh_isentropic x eta).
+- The correct statement: enthalpy drop down -> steam rate up; enthalpy drop up -> steam rate down (inverse).
+- Do not mix up enthalpy and enthalpy drop:
+  - Lower inlet pressure or temperature lowers h1 and shortens the expansion, so the drop falls and steam rate
+    rises. That is why inlet enthalpy and steam rate usually move opposite ways.
+  - Lower h1 alone does not always mean more steam; what matters is the drop.
+  - On the exhaust side, higher back-pressure (or worse vacuum) RAISES h2, which shrinks the drop and raises the
+    steam rate. Here h2 up means steam rate up, the opposite of "enthalpy up, steam rate down".
+  - Turbine wear or leakage lowers the actual drop for the same ideal drop (lower efficiency), so steam rate rises.
+- So steam consumption (TPH/MW) rises when turbine efficiency falls, when inlet steam pressure or temperature
+  falls, or when vacuum / back-pressure gets worse.
+- Measured on this plant (11-16 Nov 2026, 7332 minutes on load >= 10 MW), ideal drop DH_IS.PV from main steam to
+  the exhaust (PT_106_1 about 0.15 kgf/cm2 g):
+  - DH_IS.PV averaged 957 kJ/kg (882-1021); SR_IDEAL.PV 3.76 (3.53-4.08); actual steam rate 5.77 TPH/MW.
+    Actual is well above ideal mainly because much of the steam leaves at the extractions before the end of the
+    turbine, plus the losses; so actual / ideal is not an isentropic efficiency.
+  - Steam rate follows the drop much more closely than inlet enthalpy alone: correlation -0.65 with DH_IS.PV
+    against -0.30 with H_MS.PV.
+  - At 18-21 MW: drop 920-930 kJ/kg -> 6.04 TPH/MW; 950-960 -> 5.77; 980-990 -> 5.55.
+  - Drop fit: steam rate = 13.549 - 0.00764 x DH_IS - 0.0247 x load (R2 0.52). So +10 kJ/kg of drop gives about
+    -0.076 TPH/MW (-1.3 %). Use this fit first when explaining a change in steam rate.
+- Inlet enthalpy fit (older, weaker, R2 0.17): steam rate = 12.702 - 0.00190 x h1 - 0.0221 x load; +10 kJ/kg of h1
+  gives about -0.33 %; +10 C gives about -0.8 %. Main steam about 494 C gave 5.85 TPH/MW and about 530 C gave
+  5.72 at 18-21 MW.
+- Corrected steam rate SR_CORR.PV (to judge the turbine itself) uses the inlet enthalpy fit:
+  SR_corrected = SR_actual + 0.0019 x (h1 - 3440) + 0.0221 x (load - 19.5). A slow rise points to turbine wear or
+  leakage rather than steam conditions. It does not correct for back-pressure; check PT_106_1.PV and DH_IS.PV too.
+- Drop and load together explain about half of the minute-to-minute change in steam rate (R2 0.52). Extraction and
+  process steam demand and flow measurement explain much of the rest. Say so when it matters.
 
 ## Turbine isentropic efficiency
 - eta = (h1 - h2,actual) / (h1 - h2,isentropic) x 100. h1 from inlet P and T; h2,actual from outlet P and T
   (only when the outlet is superheated); h2,isentropic is the outlet state with the same entropy as the inlet.
 - Ideal work W = m x (h1 - h2,isentropic); actual work W = m x (h1 - h2,actual); m in kg/s = t/h / 3.6.
 - HP section, inlet to 1st extraction (PT_103_1.PV, TE103.PV), measured on 16 Nov 2026: h1 3446.4,
-  h2,actual 3215.1, h2,isentropic 3091.9 kJ/kg, so eta = 231.2 / 354.5 = 65.2 %. About 65 % is normal for the
-  control stage of a small industrial turbine; a falling trend points to nozzle or blade wear or leakage.
+  h2,actual 3215.1, h2,isentropic 3091.9 kJ/kg, so eta = 231.2 / 354.5 = 65.2 %. HP_EFF.PV records this every
+  minute: on load 11-16 Nov 2026 it averaged 58.9 % (30-81 %; it swings with load and control valve opening).
+  A falling trend at the same load points to nozzle or blade wear or leakage.
 - The whole-turbine efficiency cannot come from exhaust P and T: the exhaust is near saturation or wet, where
   temperature does not give the dryness. It needs an energy balance with every extraction flow.
 - Losses: nozzle and blade friction, leakage through seals and clearances, partial admission, wetness in the
@@ -107,10 +132,13 @@ temperature has been confirmed.
 
 ## How to diagnose a high steam rate
 1. Check load: low load raises steam rate by itself. Compare within the same load band.
-2. Check main steam enthalpy (temperature first, then pressure). If enthalpy fell, the cause is on the
-   boiler side: superheater temperature, desuperheater spray, firing, fouling.
-3. If enthalpy is normal and the corrected steam rate is high, look at the turbine side: HP efficiency trend,
-   extraction flows, exhaust back-pressure, leakage.
+2. Check the ideal enthalpy drop DH_IS.PV. If it fell, find which end moved:
+   - inlet: main steam temperature (first) or pressure fell, so H_MS.PV fell. Boiler side: superheater
+     temperature, desuperheater spray, firing, fouling.
+   - exhaust: PT_106_1.PV (back-pressure) rose, so h2 rose. Process steam demand or exhaust line side.
+   Use the drop fit (-0.076 TPH/MW per -10 kJ/kg of drop) to say how much of the change this explains.
+3. If the drop is normal and the steam rate is still high, look at the turbine itself: HP_EFF.PV falling,
+   SR_CORR.PV rising, extraction flows, leakage.
 4. Check instruments: TT_07A/B/C disagreeing, or FT_02A and FT_02B drifting apart, point to a sensor, not the
    process. Steam flow should be pressure and temperature compensated.
 5. Quantify each effect with the plant numbers above and say which part is explained and which is not.

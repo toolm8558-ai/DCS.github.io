@@ -91,7 +91,6 @@ main.wrap{padding-top:28px;padding-bottom:110px}
 .live.stale .cell .val,.live.stale .spark{opacity:.5}
 .steam,.cell.featured{background:var(--brand-soft);border-color:transparent}
 .steam .av{background:var(--brand);color:#fff}
-.cell-note{margin:-2px 0 6px;font-size:12px;color:var(--ink2);overflow-wrap:anywhere}
 .steamNote{font-size:12px;color:var(--ink2);overflow-wrap:anywhere;min-height:22px;padding-top:2px}
 .liveNote{margin-top:12px;padding:10px 14px;border-radius:10px;background:#fff6e5;color:#8a5a00;font-size:13px}
 [data-theme=dark] .liveNote{background:#3a2c10;color:#ffcf70}
@@ -359,6 +358,18 @@ button.brand:hover{background:var(--hover);border-color:var(--line)}
 .card-block .p-h:first-child{margin-top:0}
 .p-h{font-size:17px}
 a.m-item{text-decoration:none}
+.live-now{margin-top:0}
+.ln-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 16px}
+.ln-head span{font-size:12.5px;color:var(--ink3)}
+.ln-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:14px 0 4px}
+.ln{padding:12px 14px;border-radius:12px;background:var(--soft)}
+.ln.main{background:var(--brand-soft)}
+.ln span{display:block;font-size:12.5px;color:var(--ink2)}
+.ln b{display:block;font-size:24px;font-weight:700;letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+.ln.main b{color:var(--brand)}
+.ln b small{font-size:12.5px;font-weight:400;letter-spacing:0;color:var(--ink3)}
+.ln em{display:block;font-style:normal;font-size:12px;color:var(--ink3)}
+.p-period{margin-top:28px;margin-bottom:10px}
 .m-item.on{background:var(--brand-soft)}
 .m-item.on b{color:var(--brand)}
 .home-btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 12px;border:1px solid var(--line);border-radius:10px;color:var(--ink2);font-size:13.5px;font-weight:600;text-decoration:none;flex:none}
@@ -527,16 +538,24 @@ body{overflow-x:clip}
     <div class="page-head">
       <a class="back" href="#/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Dashboard</a>
       <h1 id="perfTitle">Turbine performance</h1>
-      <p>Minutes with TG load 10 MW or more. Each dot is one minute (or one averaged point for long periods).</p>
+      <p>Steam rate depends on the enthalpy drop across the turbine, Δh = h₁ − h₂: the bigger the drop, the less steam each MW needs.</p>
     </div>
+
+    <div class="card-block live-now">
+      <div class="ln-head"><h2 class="p-h">Live now</h2><span id="lnTime">Waiting for live values</span></div>
+      <div class="ln-grid" id="lnGrid"></div>
+      <p class="h-note">Steam rate = 3600 ÷ Δh for an ideal turbine. Δh falls, and steam rate rises, when main steam pressure or temperature falls, when exhaust back-pressure rises, or when the turbine wears. Enthalpy and steam rate update every 2 seconds; the drop and HP efficiency come from saved history, about 10 minutes behind.</p>
+    </div>
+
+    <h2 class="p-h p-period">History</h2>
     <div class="chips p-chips" id="perfChips" role="group" aria-label="Period"></div>
     <p class="h-warn" id="perfMsg" hidden></p>
     <div id="perfBody">
       <div class="p-stats" id="perfStats"></div>
       <div class="card-block">
-        <h2 class="p-h">Steam rate vs main steam enthalpy</h2>
-        <p class="h-note">Higher enthalpy should need less steam per MW, so the dots should slope down. Darker dots are higher load. The dashed line is the plant fit.</p>
-        <div class="p-chart p-scatter"><svg id="perfScatter" aria-label="Scatter of steam rate against main steam enthalpy, coloured by TG load"></svg><div class="p-tip" id="perfTip" hidden></div></div>
+        <div class="ln-head"><h2 class="p-h">Steam rate vs enthalpy</h2><div class="seg-mini" role="group" aria-label="Horizontal axis"><button type="button" id="perfXdrop" class="on">Enthalpy drop Δh</button><button type="button" id="perfXh1">Inlet enthalpy h₁</button></div></div>
+        <p class="h-note" id="perfScatterNote"></p>
+        <div class="p-chart p-scatter"><svg id="perfScatter" aria-label="Scatter of steam rate against enthalpy, coloured by TG load"></svg><div class="p-tip" id="perfTip" hidden></div></div>
         <div class="p-legend" id="perfLegend"></div>
       </div>
       <div class="card-block">

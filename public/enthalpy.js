@@ -65,7 +65,7 @@
       + step(F && L ? 7 : 6, 'What moves enthalpy the most',
         row('Temperature +10 °C', `h(p, T+10) − h`, `${hot > 0 ? '+' : ''}${f(hot, 1)} kJ/kg`)
         + row('Pressure +5 kgf/cm²', `h(p+5, T) − h`, `${press > 0 ? '+' : ''}${f(press, 1)} kJ/kg`),
-        'Temperature has the bigger effect. Higher enthalpy means each tonne of steam does more work, so the steam rate (TPH/MW) falls.');
+        'Temperature has the bigger effect. What sets the steam rate is the enthalpy drop through the turbine, h₁ − h₂: a higher h₁ usually gives a bigger drop and so a lower steam rate (TPH/MW), but a higher exhaust back-pressure raises h₂, shrinks the drop and raises the steam rate. See Turbine performance.');
 
     const d = $('hCoeff');
     if (d) d.addEventListener('toggle', () => { coeffOpen = d.open; });

@@ -124,7 +124,7 @@ const ASSISTANT_TOOLS = [
     type: 'function',
     function: {
       name: 'turbine_performance',
-      description: 'Turbine performance over a period of up to 7 days: minutes on load, average load, steam flow, steam rate, main steam temperature, pressure and enthalpy, corrected steam rate, HP section isentropic efficiency, steam rate by enthalpy band, and how much of the steam rate difference from the plant reference comes from enthalpy and from load. Use it for any question about steam rate, enthalpy, efficiency or why the steam rate changed. Defaults to the dashboard period, otherwise today.',
+      description: 'Turbine performance over a period of up to 7 days: minutes on load, average load, steam flow, steam rate, main steam temperature, pressure and enthalpy, the ideal enthalpy drop to the exhaust with the drop-based expected steam rate (use this first to explain steam rate), exhaust back-pressure, corrected steam rate, HP section isentropic efficiency, steam rate by enthalpy band, and how much of the steam rate difference from the plant reference comes from enthalpy and from load. Use it for any question about steam rate, enthalpy, efficiency or why the steam rate changed. Defaults to the dashboard period, otherwise today.',
       parameters: {
         type: 'object',
         properties: {
@@ -162,6 +162,8 @@ const KNOWLEDGE = (() => {
 
 // Plant fit (11-16 Nov 2026): steam rate = 12.702 - 0.00190 h - 0.0221 load. See assistant-knowledge.md.
 const SR_FIT = { intercept: 12.702, hCoef: 0.0019, loadCoef: 0.0221, hRef: 3440, loadRef: 19.5, minLoad: 10 };
+// Drop fit (same days, R2 0.52): steam rate = 13.549 - 0.00764 DH_IS - 0.0247 load.
+const DROP_FIT = { intercept: 13.549, dhCoef: 0.00764, loadCoef: 0.0247, dhRef: 957, loadRef: 19.5 };
 
 function readJson(req, limit) {
   return new Promise((resolve, reject) => {
@@ -550,7 +552,7 @@ async function main() {
     return parseRange(new URLSearchParams({ from: fromText, to: toText }));
   }
 
-  const PERF_TAGS = ['PT_02.PV', 'TT_07A.PV', 'TG_LOAD.PV', 'FT_02A.PV', 'STEAM_RATE.PV', 'PT_103_1.PV', 'TE103.PV'];
+  const PERF_TAGS = ['PT_02.PV', 'TT_07A.PV', 'TG_LOAD.PV', 'FT_02A.PV', 'STEAM_RATE.PV', 'PT_103_1.PV', 'TE103.PV', 'DH_IS.PV', 'PT_106_1.PV'];
 
   // Steam rate, enthalpy and HP efficiency over a period, minute by minute, using only minutes on load.
   function turbinePerformance(range) {
@@ -571,7 +573,7 @@ async function main() {
         if (!(load >= SR_FIT.minLoad) || !(sr > 0) || p === undefined || temp === undefined) continue;
         const st = IF97.fromPlant(p, temp);
         if (!st.inRange) continue;
-        rows.push({ t, load, sr, p, temp, h: st.h, s: st.s, flow: m['FT_02A.PV'], p2: m['PT_103_1.PV'], t2: m['TE103.PV'] });
+        rows.push({ t, load, sr, p, temp, h: st.h, s: st.s, flow: m['FT_02A.PV'], p2: m['PT_103_1.PV'], t2: m['TE103.PV'], dh: m['DH_IS.PV'], pe: m['PT_106_1.PV'] });
       }
       const base = {
         period: { fromIndia: formatIndiaTime(range.from), toIndiaExclusive: formatIndiaTime(range.to), timezone: 'Asia/Kolkata' },
@@ -620,8 +622,23 @@ async function main() {
           formula: `SR + ${SR_FIT.hCoef} x (h - ${SR_FIT.hRef}) + ${SR_FIT.loadCoef} x (load - ${SR_FIT.loadRef})`,
           meaning: `Steam rate brought to h ${SR_FIT.hRef} kJ/kg and ${SR_FIT.loadRef} MW, so periods compare on equal steam conditions and load.`
         },
+        enthalpyDrop: (() => {
+          // Steam rate follows the enthalpy drop (DH_IS.PV) much better than inlet enthalpy alone; use this first.
+          const withDrop = rows.filter(r => typeof r.dh === 'number'), withPe = rows.filter(r => typeof r.pe === 'number');
+          if (!withDrop.length) return { note: 'No DH_IS.PV minutes in this period.' };
+          const aDh = withDrop.reduce((a, r) => a + r.dh, 0) / withDrop.length, aL = withDrop.reduce((a, r) => a + r.load, 0) / withDrop.length;
+          const aSr = withDrop.reduce((a, r) => a + r.sr, 0) / withDrop.length, exp = DROP_FIT.intercept - DROP_FIT.dhCoef * aDh - DROP_FIT.loadCoef * aL;
+          return {
+            minutes: withDrop.length, idealDropKjPerKg: round(aDh), idealSteamRate: round(3600 / aDh),
+            exhaustBackPressureKgfCm2G: withPe.length ? round(withPe.reduce((a, r) => a + r.pe, 0) / withPe.length) : undefined,
+            fit: `SR = ${DROP_FIT.intercept} - ${DROP_FIT.dhCoef} x DH_IS - ${DROP_FIT.loadCoef} x load (11-16 Nov 2026, R2 0.52)`,
+            expectedSteamRate: round(exp), actualMinusExpected: round(aSr - exp),
+            effectOfDropVsReference: round(-DROP_FIT.dhCoef * (aDh - DROP_FIT.dhRef)),
+            reference: `drop ${DROP_FIT.dhRef} kJ/kg and ${DROP_FIT.loadRef} MW give ${round(DROP_FIT.intercept - DROP_FIT.dhCoef * DROP_FIT.dhRef - DROP_FIT.loadCoef * DROP_FIT.loadRef)} TPH/MW`
+          };
+        })(),
         plantFit: {
-          formula: `SR = ${SR_FIT.intercept} - ${SR_FIT.hCoef} x h - ${SR_FIT.loadCoef} x load (fitted on 11-16 Nov 2026, R2 0.17)`,
+          formula: `SR = ${SR_FIT.intercept} - ${SR_FIT.hCoef} x h - ${SR_FIT.loadCoef} x load (inlet enthalpy only, 11-16 Nov 2026, R2 0.17)`,
           referenceSteamRate: round(SR_FIT.intercept - SR_FIT.hCoef * SR_FIT.hRef - SR_FIT.loadCoef * SR_FIT.loadRef),
           expectedForThisPeriod: round(expected),
           actualMinusExpected: round(avgSr - expected),

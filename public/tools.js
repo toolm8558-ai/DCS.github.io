@@ -24,7 +24,7 @@
   // Each page has its own address, so Back, refresh and sharing a link all work.
   const PAGES = {
     '': { view: 'viewHome', title: 'DCS Trends' },
-    performance: { view: 'viewPerf', title: 'Turbine performance', enter: () => loadPerf() },
+    performance: { view: 'viewPerf', title: 'Turbine performance', enter: () => enterPerf(), leave: () => leavePerf() },
     compare: { view: 'viewCompare', title: 'Compare tags', enter: () => openCompare() },
     enthalpy: { view: 'viewEnthalpy', title: 'Enthalpy', enter: () => window.enthalpyPage(true), leave: () => window.enthalpyPage(false) },
     limits: { view: 'viewLimits', title: 'Live limits', enter: () => openLimits() }
@@ -86,19 +86,72 @@
   }
 
   // ---------- Turbine performance ----------
-  let perfPeriod = '7d', perfData = null;
+  let perfPeriod = '7d', perfData = null, perfX = 'dh', liveHist = {}, liveHistTimer = null;
+  const avgOf = list => (list.length ? list.reduce((a, v) => a + v, 0) / list.length : undefined);
+  const fix = (v, d) => (v === undefined || !Number.isFinite(v) ? '-' : Number(v).toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d }));
+
+  // Plant fits (on load, 11-16 Nov 2026). The drop fit explains much more (R2 0.52) than the inlet one (0.17).
+  const FITS = {
+    dh: { key: 'dh', a: 13.549, b: 0.00764, c: 0.0247, label: 'Ideal enthalpy drop Δh (DH_IS.PV), kJ/kg →', sym: 'Δh',
+      note: 'Each dot is one minute on load. A bigger enthalpy drop means each tonne of steam makes more power, so the steam rate falls: the dots slope down. Darker dots are higher load; the dashed line is the plant fit.' },
+    h1: { key: 'h', a: 12.702, b: 0.0019, c: 0.0221, label: 'Main steam inlet enthalpy h₁ (H_MS.PV), kJ/kg →', sym: 'h₁',
+      note: 'Inlet enthalpy alone explains the steam rate less well than the drop, because the exhaust side (h₂, back-pressure) also matters. Darker dots are higher load; the dashed line is the plant fit.' }
+  };
+  $('perfXdrop').addEventListener('click', () => { perfX = 'dh'; $('perfXdrop').classList.add('on'); $('perfXh1').classList.remove('on'); drawScatter(); });
+  $('perfXh1').addEventListener('click', () => { perfX = 'h1'; $('perfXh1').classList.add('on'); $('perfXdrop').classList.remove('on'); drawScatter(); });
+
+  // Live now: enthalpy from the live main steam pressure and temperature, steam rates from live tags,
+  // the drop and HP efficiency from the newest saved minute.
+  function drawLiveNow() {
+    if (!pageShown('viewPerf')) return;
+    const v = tag => { const i = liveNow.get(tag); return i && Number.isFinite(i.v) ? i : null; };
+    const P = v('PT_02.PV'), T = v('TT_07A.PV'), SR = v('STEAM_RATE.PV'), C = v('SR_CORR.PV');
+    const st = P && T ? IF97.fromPlant(P.v, T.v) : null;
+    const box = (label, value, unit, sub, main) => `<div class="ln${main ? ' main' : ''}"><span>${label}</span><b>${value}<small> ${unit}</small></b><em>${sub}</em></div>`;
+    const dh = liveHist['DH_IS.PV'], si = liveHist['SR_IDEAL.PV'], eff = liveHist['HP_EFF.PV'];
+    $('lnGrid').innerHTML = [
+      box('Main steam enthalpy h₁', st && st.superheatC > 0 ? fix(st.h, 1) : '-', 'kJ/kg',
+        st && st.superheatC > 0 ? `= ${fix(st.hKcal, 1)} kcal/kg · ${fix(st.superheatC, 1)} °C superheat` : 'Needs live PT_02.PV and TT_07A.PV', true),
+      box('Steam rate', SR ? fix(SR.v, 3) : '-', 'TPH/MW', 'STEAM_RATE.PV, live'),
+      box('Corrected steam rate', C ? fix(C.v, 3) : '-', 'TPH/MW', 'SR_CORR.PV, live'),
+      box('Ideal enthalpy drop Δh', dh ? fix(dh.v, 1) : '-', 'kJ/kg', si ? `ideal steam rate ${fix(si.v, 3)} TPH/MW · ${fmtTime(dh.t)}` : 'main steam to exhaust'),
+      box('HP section efficiency', eff ? fix(eff.v, 1) : '-', '%', eff ? `inlet to 1st extraction · ${fmtTime(eff.t)}` : 'inlet to 1st extraction')
+    ].join('');
+    const t = Math.max(P ? P.t : 0, T ? T.t : 0, SR ? SR.t : 0);
+    $('lnTime').textContent = t ? `Live, read at ${fmtSec(t)}` : 'Waiting for live values';
+  }
+  async function loadLiveHistory() {
+    const now = Math.floor(Date.now() / MIN) * MIN;
+    const got = await Promise.all(['DH_IS.PV', 'SR_IDEAL.PV', 'HP_EFF.PV'].map(tag => trend(tag, now - 3 * HOUR, now + MIN).then(d => {
+      const p = d.points.filter(x => x.v !== undefined).pop();
+      return [tag, p ? { v: p.v, t: p.t } : null];
+    }).catch(() => [tag, null])));
+    liveHist = Object.fromEntries(got);
+    drawLiveNow();
+  }
+  document.addEventListener('livereading', drawLiveNow);
+
+  function enterPerf() {
+    drawLiveNow();
+    loadLiveHistory();
+    clearInterval(liveHistTimer);
+    liveHistTimer = setInterval(loadLiveHistory, 60000);
+    loadPerf();
+  }
+  function leavePerf() { clearInterval(liveHistTimer); }
 
   async function loadPerf() {
     chips($('perfChips'), [['today', 'Today'], ['yesterday', 'Yesterday'], ['7d', '7D'], ['30d', '30D']], perfPeriod, k => { perfPeriod = k; loadPerf(); });
     $('perfMsg').hidden = false; $('perfMsg').textContent = 'Loading…'; $('perfBody').style.opacity = .4;
     const [from, to] = periodOf(perfPeriod);
     try {
-      const [sr, h, load, corr] = await Promise.all(['STEAM_RATE.PV', 'H_MS.PV', 'TG_LOAD.PV', 'SR_CORR.PV'].map(t => trend(t, from, to)));
+      const tags = ['STEAM_RATE.PV', 'H_MS.PV', 'TG_LOAD.PV', 'SR_CORR.PV', 'DH_IS.PV', 'HP_EFF.PV'];
+      const [sr, ...rest] = await Promise.all(tags.map(t => trend(t, from, to)));
       const b = sr.bucketMinutes, at = d => new Map(d.points.map(p => [p.t, valueOf(p, b)]));
-      const H = at(h), L = at(load), C = at(corr);
-      const rows = sr.points.map(p => ({ t: p.t, sr: valueOf(p, b), h: H.get(p.t), load: L.get(p.t), corr: C.get(p.t) }));
-      perfData = { from: sr.from, to: sr.to, bucket: b, rows, dots: rows.filter(r => r.sr !== undefined && r.h !== undefined && r.load !== undefined && r.load >= 10) };
-      $('perfMsg').hidden = perfData.dots.length > 0;
+      const [H, L, C, D, E] = rest.map(at);
+      const rows = sr.points.map(p => ({ t: p.t, sr: valueOf(p, b), h: H.get(p.t), load: L.get(p.t), corr: C.get(p.t), dh: D.get(p.t), eff: E.get(p.t) }));
+      perfData = { from: sr.from, to: sr.to, bucket: b, rows, onLoad: rows.filter(r => r.sr !== undefined && r.load !== undefined && r.load >= 10) };
+      $('perfMsg').hidden = perfData.onLoad.length > 0;
       $('perfMsg').textContent = 'No minutes with the turbine on load (10 MW or more) in this period.';
       drawPerf();
     } catch (e) {
@@ -110,14 +163,15 @@
 
   function drawPerf() {
     const d = perfData; if (!d) return;
-    const dots = d.dots, avg = k => dots.reduce((a, r) => a + r[k], 0) / dots.length;
-    const corrs = d.rows.filter(r => r.corr !== undefined);
+    const on = d.onLoad, pick = k => on.map(r => r[k]).filter(v => v !== undefined);
     const stat = (label, value, unit, sub) => `<div class="p-stat"><span>${label}</span><b>${value}<small> ${unit}</small></b><em>${sub}</em></div>`;
-    $('perfStats').innerHTML = dots.length ? [
-      stat('Steam rate', num(+avg('sr').toFixed(3)), 'TPH/MW', 'average on load'),
-      stat('Corrected steam rate', corrs.length ? num(+(corrs.reduce((a, r) => a + r.corr, 0) / corrs.length).toFixed(3)) : '-', 'TPH/MW', 'at 3440 kJ/kg and 19.5 MW'),
-      stat('Main steam enthalpy', num(+avg('h').toFixed(1)), 'kJ/kg', 'average on load'),
-      stat('Time on load', num(Math.round(dots.length * d.bucket / 60 * 10) / 10), 'h', `${fmtDate(d.from)} to ${fmtDate(d.to)}`)
+    $('perfStats').innerHTML = on.length ? [
+      stat('Steam rate', fix(avgOf(pick('sr')), 3), 'TPH/MW', 'average on load'),
+      stat('Corrected steam rate', fix(avgOf(pick('corr')), 3), 'TPH/MW', 'at 3440 kJ/kg and 19.5 MW'),
+      stat('Ideal enthalpy drop Δh', fix(avgOf(pick('dh')), 1), 'kJ/kg', 'main steam to exhaust, average'),
+      stat('Main steam enthalpy h₁', fix(avgOf(pick('h')), 1), 'kJ/kg', 'average on load'),
+      stat('HP section efficiency', fix(avgOf(pick('eff')), 1), '%', 'inlet to 1st extraction, average'),
+      stat('Time on load', num(Math.round(on.length * d.bucket / 60 * 10) / 10), 'h', `${fmtDate(d.from)} to ${fmtDate(d.to)}`)
     ].join('') : '';
     drawScatter(); drawCorr();
   }
@@ -125,7 +179,12 @@
   function drawScatter() {
     const d = perfData, svg = $('perfScatter'), box = svg.parentNode, W = box.clientWidth, Hh = box.clientHeight;
     svg.replaceChildren(); svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`);
-    const dots = d.dots; if (!dots.length) return;
+    if (!d) return;
+    const fitDef = FITS[perfX], xk = fitDef.key;
+    $('perfScatterNote').textContent = fitDef.note;
+    // Each dot carries its x value under the name "h" so the drawing below is the same for both axes.
+    const dots = d.onLoad.filter(r => r[xk] !== undefined).map(r => ({ ...r, h: r[xk] }));
+    if (!dots.length) { $('perfLegend').textContent = ''; return; }
     const m = { l: 48, r: 12, t: 10, b: 34 };
     const hs = dots.map(r => r.h), srs = dots.map(r => r.sr), loads = dots.map(r => r.load);
     const xt = niceTicks(Math.min(...hs), Math.max(...hs), 5), yt = niceTicks(Math.min(...srs), Math.max(...srs), 4);
@@ -133,7 +192,7 @@
     const x = v => m.l + (v - x0) / ((x1 - x0) || 1) * (W - m.l - m.r), y = v => m.t + (Hh - m.t - m.b) - (v - y0) / ((y1 - y0) || 1) * (Hh - m.t - m.b);
     axes(svg, m, W, Hh, x, y, yt, undefined, undefined, v => num(v));
     for (const v of xt) el('text', { x: x(v), y: Hh - 16, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--ink3)' }, svg).textContent = num(v);
-    el('text', { x: (m.l + W - m.r) / 2, y: Hh - 2, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--ink2)' }, svg).textContent = 'Main steam enthalpy, kJ/kg →';
+    el('text', { x: (m.l + W - m.r) / 2, y: Hh - 2, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--ink2)' }, svg).textContent = fitDef.label;
 
     // Colour = load, one hue light (low) to dark (high).
     const lo = Math.min(...loads), hi = Math.max(...loads), cLo = css('--seq-lo'), cHi = css('--seq-hi');
@@ -141,11 +200,14 @@
     const g = el('g', {}, svg);
     for (const r of dots) el('circle', { cx: x(r.h).toFixed(1), cy: y(r.sr).toFixed(1), r: 3.5, fill: colorOf(r.load), 'fill-opacity': .75 }, g);
 
-    // The plant fit at the period's average load: SR = 12.702 - 0.0019 h - 0.0221 load.
-    const aL = loads.reduce((a, v) => a + v, 0) / loads.length, fit = h => 12.702 - 0.0019 * h - 0.0221 * aL;
-    el('line', { x1: x(x0), x2: x(x1), y1: y(fit(x0)), y2: y(fit(x1)), stroke: 'var(--ink)', 'stroke-width': 2, 'stroke-dasharray': '6 4' }, svg);
+    // The plant fit at the period's average load.
+    const aL = loads.reduce((a, v) => a + v, 0) / loads.length, fit = v => fitDef.a - fitDef.b * v - fitDef.c * aL;
+    // The fit line is clipped to the plot so it never runs over the axes when the data sits off the fit.
+    const clip = el('clipPath', { id: 'perfPlotClip' }, el('defs', {}, svg));
+    el('rect', { x: m.l, y: m.t, width: W - m.l - m.r, height: Hh - m.t - m.b }, clip);
+    el('line', { x1: x(x0), x2: x(x1), y1: y(fit(x0)), y2: y(fit(x1)), stroke: 'var(--ink)', 'stroke-width': 2, 'stroke-dasharray': '6 4', 'clip-path': 'url(#perfPlotClip)' }, svg);
     $('perfLegend').innerHTML = `<span class="ramp" style="background:linear-gradient(90deg,${cLo},${cHi})"></span> TG load ${num(+lo.toFixed(1))} to ${num(+hi.toFixed(1))} MW
-      <span class="fitkey"></span> Plant fit at ${num(+aL.toFixed(1))} MW: SR = 12.702 − 0.0019 × h − 0.0221 × load`;
+      <span class="fitkey"></span> Plant fit at ${num(+aL.toFixed(1))} MW: SR = ${fitDef.a} − ${fitDef.b} × ${fitDef.sym} − ${fitDef.c} × load`;
 
     const tip = $('perfTip'), ring = el('circle', { r: 6, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 2, visibility: 'hidden' }, svg);
     svg.onpointermove = e => {
@@ -154,7 +216,7 @@
       for (const r of dots) { const dx = x(r.h) - px, dy = y(r.sr) - py, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = r; } }
       if (!best) { tip.hidden = true; ring.setAttribute('visibility', 'hidden'); return; }
       ring.setAttribute('cx', x(best.h)); ring.setAttribute('cy', y(best.sr)); ring.setAttribute('visibility', 'visible');
-      tip.innerHTML = `<b>${num(+best.sr.toFixed(3))} TPH/MW</b><div>${when(best.t)}</div><div>Enthalpy ${num(+best.h.toFixed(1))} kJ/kg</div><div>Load ${num(+best.load.toFixed(2))} MW</div>`;
+      tip.innerHTML = `<b>${num(+best.sr.toFixed(3))} TPH/MW</b><div>${when(best.t)}</div><div>${fitDef.sym} ${num(+best.h.toFixed(1))} kJ/kg</div><div>Load ${num(+best.load.toFixed(2))} MW</div>`;
       tip.hidden = false;
       tip.style.left = `${Math.min(px + 12, W - tip.offsetWidth - 4)}px`; tip.style.top = `${Math.max(4, py - tip.offsetHeight - 10)}px`;
     };
