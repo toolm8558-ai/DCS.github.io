@@ -129,18 +129,26 @@ function liveCell(item) {
   const val = document.createElement('span'); val.className = 'val';
   const unit = document.createElement('span'); unit.className = 'unit'; unit.textContent = item.unit || '';
   reading.append(val, unit);
+  const note = document.createElement('div'); note.className = 'cell-note'; note.hidden = true;
   const lim = document.createElement('div'); lim.className = 'lim'; lim.hidden = true;
   const foot = document.createElement('div'); foot.className = 'foot';
   const chg = document.createElement('span'); chg.className = 'chg flat'; chg.title = 'Change since this page started reading';
   const spark = el('svg', { class: 'spark', viewBox: '0 0 100 26', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
   const line = el('polyline', {}, spark);
   foot.append(chg, spark);
-  cell.append(top, reading, lim, foot);
+  cell.append(top, reading, note, lim, foot);
   cell.addEventListener('click', () => { pick(item.tag); $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   // The saved steam rate leads the list; the card worked out in the browser is then no longer needed.
-  if (item.tag === STEAM_TAG) { cell.classList.add('featured'); $('live').prepend(cell); $('steamCard').remove(); }
-  else $('live').append(cell);
-  return { cell, val, line, chg, lim, seen: [], last: 0 };
+  if (item.tag === STEAM_TAG) {
+    cell.classList.add('featured'); $('live').prepend(cell);
+    if ($('steamCard')) $('steamCard').remove();
+  } else if (item.tag === ENTHALPY_TAG) {
+    // Enthalpy sits right after the steam rate (or first until the steam rate arrives).
+    cell.classList.add('featured');
+    const steam = liveCells.get(STEAM_TAG);
+    if (steam) steam.cell.after(cell); else $('live').prepend(cell);
+  } else $('live').append(cell);
+  return { cell, val, line, chg, lim, note, seen: [], last: 0 };
 }
 
 // Limits each viewer sets on live values. They are kept in this browser only, so everyone can have their own.
@@ -224,18 +232,38 @@ function drawSteamRate(tags) {
   }
 }
 
+// Live main steam enthalpy, worked out here every reading from PT_02.PV and TT_07A.PV with IAPWS-IF97,
+// so it shows even when SteamRate.exe is not running. It replaces the saved H_MS.PV card; clicking it
+// opens the saved H_MS.PV history.
+const ENTHALPY_TAG = 'H_MS.PV';
+const oneDp = v => Number(v).toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+function liveEnthalpy(tags) {
+  const p = tags.find(x => x.tag === 'PT_02.PV'), t = tags.find(x => x.tag === 'TT_07A.PV');
+  if (!p || !t || !window.IF97 || !Number.isFinite(p.v) || !Number.isFinite(t.v)) return null;
+  const st = IF97.fromPlant(p.v, t.v);
+  if (st.superheatC <= 0) return null;   // not superheated: the formula does not apply
+  return {
+    tag: ENTHALPY_TAG, description: 'Live main steam enthalpy', unit: 'kJ/kg', t: Math.max(p.t, t.t), v: Math.round(st.h * 10) / 10, digits: 1,
+    note: `= ${oneDp(st.hKcal)} kcal/kg · ${oneDp(st.superheatC)} °C superheat${st.inRange ? '' : ' · outside checked range'}`
+  };
+}
+
 function drawLive(reply) {
-  liveTags = reply.tags.map(t => t.tag);
+  const h = liveEnthalpy(reply.tags);
+  const tags = reply.tags.filter(x => x.tag !== ENTHALPY_TAG).concat(h ? [h] : []);
+  liveTags = tags.map(t => t.tag);
   let newest = 0;
-  for (const item of reply.tags) {
+  for (const item of tags) {
     liveNow.set(item.tag, item);
     if (!liveCells.has(item.tag)) liveCells.set(item.tag, liveCell(item));
     const c = liveCells.get(item.tag);
-    c.val.textContent = liveNum(item.v);
+    c.val.textContent = item.digits === undefined ? liveNum(item.v) : oneDp(item.v);
     if (item.t !== c.last) { c.last = item.t; c.seen.push(item.v); if (c.seen.length > LIVE_KEEP) c.seen.shift(); }
     drawSpark(c);
     c.cell.dataset.dir = setChange(c.chg, c.seen.length > 1 ? item.v - c.seen[0] : null, c.seen[0], liveNum);
     applyLimit(c, item);
+    c.note.hidden = !item.note;
+    if (item.note) c.note.textContent = item.note;
     c.cell.setAttribute('aria-pressed', String(item.tag === state.tag));
     c.cell.setAttribute('aria-label', `${item.description || item.tag}, ${liveNum(item.v)} ${item.unit || ''}. Show trend.`);
     newest = Math.max(newest, item.t);
