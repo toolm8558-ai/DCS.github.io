@@ -36,6 +36,11 @@ internet was down are filled in. Times come from the database, so a wrong clock 
 
 ## Install on the plant PC
 
+**Easiest:** TrendToMongo Setup 1.1 carries SteamRate as an add-on. Run `TrendToMongoSetup.exe` on the plant
+PC and leave "Install SteamRate add-on" ticked on the Trend data page; it installs and starts both programs.
+
+By hand, without the setup:
+
 1. Copy `SteamRate.cs`, `Build.bat`, `Install-Task.ps1` and `Remove-Task.ps1` from this folder into
    `C:\Users\PAE\Desktop\TrendToMongo` (it already has `config.ini` and `lib\`).
 2. Double-click `Build.bat`. It builds `SteamRate.exe` with the .NET Framework compiler that TrendToMongo uses.
