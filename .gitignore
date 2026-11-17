@@ -3,3 +3,9 @@ node_modules/
 runtime/
 .claude/
 Start.bat
+
+# SteamRate builds, logs and settings stay on the plant PC
+steamrate/*.exe
+steamrate/logs/
+steamrate/lib/
+steamrate/config.ini
