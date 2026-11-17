@@ -359,6 +359,11 @@ button.brand:hover{background:var(--hover);border-color:var(--line)}
 .card-block .p-h:first-child{margin-top:0}
 .p-h{font-size:17px}
 a.m-item{text-decoration:none}
+.m-item.on{background:var(--brand-soft)}
+.m-item.on b{color:var(--brand)}
+.home-btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 12px;border:1px solid var(--line);border-radius:10px;color:var(--ink2);font-size:13.5px;font-weight:600;text-decoration:none;flex:none}
+.home-btn:hover{background:var(--hover);color:var(--ink)}
+.home-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 
 /* ---------- Embed + responsive ---------- */
 body.embed .nav{display:none}
@@ -377,6 +382,7 @@ body{overflow-x:clip}
 }
 @media(max-width:760px){
   .page-head h1{font-size:22px}
+  .home-btn{padding:0 9px}.home-btn span{display:none}
   .card-block{padding:14px 12px}
   .p-scatter{height:300px}
   .wrap{padding-left:16px;padding-right:16px}
@@ -437,6 +443,7 @@ body{overflow-x:clip}
   <header class="nav">
     <div class="wrap nav-in">
       <button type="button" class="brand" id="menuOpen" aria-haspopup="dialog" aria-controls="menu" title="Open menu"><svg class="burger" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><img src="logo.png" alt="" width="34" height="34"><b>DCS Trends</b></button>
+      <a class="home-btn" id="homeBtn" href="#/" title="Back to the dashboard" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg><span>Home</span></a>
       <div class="search">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <input id="tagInput" placeholder="Search a tag or description, e.g. TG_LOAD" autocomplete="off" role="combobox" aria-label="Search tag" aria-expanded="false" aria-controls="matches">
@@ -623,6 +630,7 @@ body{overflow-x:clip}
 <dialog id="menu" class="drawer" aria-label="Menu">
   <div class="drawer-head"><img src="logo.png" alt="" width="36" height="36"><div><b>DCS Trends</b><span>Plant performance</span></div></div>
   <nav class="m-list">
+    <a class="m-item" href="#/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg><span><b>Home</b><em>Dashboard with live values and trends</em></span></a>
     <p class="m-label">Analysis</p>
     <a class="m-item" href="#/performance"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="15" r="1.5"/><circle cx="11" cy="11" r="1.5"/><circle cx="15" cy="13" r="1.5"/><circle cx="18" cy="7" r="1.5"/><path d="M3 3v18h18"/></svg><span><b>Turbine performance</b><em>Steam rate vs enthalpy, corrected steam rate</em></span></a>
     <a class="m-item" href="#/compare"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7l5 3 4-4 4 3 5-4M3 17l5-2 4 2 4-3 5 2"/></svg><span><b>Compare tags</b><em>Several tags on one time axis</em></span></a>

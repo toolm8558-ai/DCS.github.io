@@ -37,6 +37,13 @@
     if (current !== null && PAGES[current].leave) PAGES[current].leave();
     current = page;
     for (const [key, p] of Object.entries(PAGES)) $(p.view).hidden = key !== page;
+    // The Home button shows on every page except the dashboard; the menu marks the page that is open.
+    $('homeBtn').hidden = !page;
+    document.querySelectorAll('a.m-item').forEach(a => {
+      const on = a.getAttribute('href').replace(/^#\/?/, '') === page;
+      a.classList.toggle('on', on);
+      if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
     document.title = page ? `${PAGES[page].title} · DCS Trends` : 'DCS Trends';
     window.scrollTo(0, 0);
     if (PAGES[page].enter) PAGES[page].enter();
