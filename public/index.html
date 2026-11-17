@@ -90,6 +90,8 @@ main.wrap{padding-top:28px;padding-bottom:110px}
 .cell[data-dir=down] .spark polyline{stroke:var(--down)}
 .live.stale .cell .val,.live.stale .spark{opacity:.5}
 .steam,.cell.featured{background:var(--brand-soft);border-color:transparent}
+.steam-row{margin-top:14px}
+.steam-row>*{grid-column:span 2}
 .steam .av{background:var(--brand);color:#fff}
 .steamNote{font-size:12px;color:var(--ink2);overflow-wrap:anywhere;min-height:22px;padding-top:2px}
 .liveNote{margin-top:12px;padding:10px 14px;border-radius:10px;background:#fff6e5;color:#8a5a00;font-size:13px}
@@ -472,14 +474,16 @@ body{overflow-x:clip}
    <div id="viewHome" class="view">
     <section aria-labelledby="liveTitle">
       <div class="sec-head"><div class="sec-title"><h2 id="liveTitle">Live values</h2></div><span id="fresh">Checking saved history…</span></div>
-      <div class="live" id="live">
+      <div class="live" id="live"></div>
+      <p class="liveNote" id="liveNote" hidden></p>
+      <!-- Steam rate sits under the live values, above the search on phones. -->
+      <div class="live steam-row" id="steamSlot">
         <article class="steam" id="steamCard" aria-label="Live steam rate">
           <div class="top"><span class="av" aria-hidden="true">SR</span><div class="name">Live steam rate</div></div>
           <div class="steamValue"><span id="steamRate">--</span><small>TPH/MW</small></div>
           <div class="steamNote" id="steamFormula">Steam flow (TPH) ÷ TG load (MW)</div>
         </article>
       </div>
-      <p class="liveNote" id="liveNote" hidden></p>
       <div id="mobileSearch"></div>
     </section>
 

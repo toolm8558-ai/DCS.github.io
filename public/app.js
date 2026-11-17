@@ -137,9 +137,9 @@ function liveCell(item) {
   foot.append(chg, spark);
   cell.append(top, reading, lim, foot);
   cell.addEventListener('click', () => { pick(item.tag); $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
-  // The saved steam rate leads the list; the card worked out in the browser is then no longer needed.
+  // The saved steam rate has its own row under the live values; it replaces the card worked out in the page.
   if (item.tag === STEAM_TAG) {
-    cell.classList.add('featured'); $('live').prepend(cell);
+    cell.classList.add('featured'); $('steamSlot').prepend(cell);   // below the live values
   } else $('live').append(cell);
   return { cell, val, line, chg, lim, seen: [], last: 0 };
 }
@@ -261,6 +261,7 @@ function drawLive(reply) {
   if (!$('viewLimits').hidden && !$('limList').children.length) openLimits();   // limits page opened before live values came
   const stale = !newest || reply.now - newest > LIVE_STALE_MS;
   $('live').classList.toggle('stale', stale);
+  $('steamSlot').classList.toggle('stale', stale);
   setPill(stale ? 'stale' : 'ok', newest ? (stale ? `Live reading stopped at ${fmtSec(newest)}` : `Live, read at ${fmtSec(newest)}`) : 'No live readings yet');
   $('liveNote').hidden = !stale || !newest;
   if (stale && newest) $('liveNote').textContent = `These are the last values received, on ${fmtDate(newest)} at ${fmtSec(newest)}. History below is not affected.`;
